@@ -1,12 +1,20 @@
 # IMAP MCP Server Development Guide
 
+## Environment Setup and Build Commands with `uv`
+- Create virtual environment: `uv venv`
+- Activate virtual environment: `source .venv/bin/activate` (Unix/macOS) or `.venv\Scripts\activate` (Windows)
+- Install dependencies: `uv pip install -e ".[dev]"`
+- Install specific packages: `uv add package_name`
+- Run commands within the environment: `uv run command [args]`
+
 ## Build and Test Commands
-- Install dependencies: `pip install -e ".[dev]"`
-- Run all tests: `pytest`
-- Run single test: `pytest tests/test_file.py::TestClass::test_function -v`
-- Run with coverage: `pytest --cov=imap_mcp`
-- Run server: `python -m imap_mcp.server --config /path/to/config.yaml`
-- Development mode: `python -m imap_mcp.server --dev`
+- Install dependencies: `uv pip install -e ".[dev]"`
+- Run all tests: `uv run pytest`
+- Run single test: `uv run pytest tests/test_file.py::TestClass::test_function -v`
+- Run with coverage: `uv run pytest --cov=imap_mcp`
+- Run server: `uv run python -m imap_mcp.server --config /path/to/config.yaml`
+- Development mode: `uv run python -m imap_mcp.server --dev`
+- One-line execution with dependencies: `uvx run -m imap_mcp.server --config /path/to/config.yaml`
 
 ## Code Style Guidelines
 - Use Black with 88 character line length

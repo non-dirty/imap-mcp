@@ -87,7 +87,7 @@ pytest -v
 
 | Priority | Task # | Status      | Description                                      |
 |----------|--------|-------------|--------------------------------------------------|
-| 1        | 1      | started     | Expand Core IMAP Client Tests                    |
+| 1        | 1      | completed   | Expand Core IMAP Client Tests                    |
 | 2        | 2      | prioritized | Implement Config Module Tests                    |
 | 3        | 3      | prioritized | Implement MCP Resources Tests                    |
 | 4        | 4      | prioritized | Implement MCP Tools Tests                        |
@@ -107,35 +107,6 @@ pytest -v
 | 18       | 18     | prioritized | Create Documentation Base                        |
 | 19       | 19     | prioritized | Create Integration Tests with Real Account       |
 
-### 1. Expand Core IMAP Client Tests
-
-**Task Name**: Implement comprehensive IMAP client tests
-
-**Test Specifications**:
-- Test connection/disconnection behavior
-- Test folder listing functionality
-- Test message retrieval with various filters
-- Test message action functions (mark read, move, delete)
-- Test error handling and edge cases
-
-**Implementation Steps**:
-```
-1. Create test_imap_client.py with test cases covering:
-   - Connection establishment/teardown
-   - Authentication methods
-   - Folder operations
-   - Message retrieval operations
-   - Message modification operations
-   - Error scenarios and recovery
-2. Use mocking to simulate IMAP server responses
-3. Include tests for both successful and error conditions
-```
-
-**TDD Process**:
-1. Run `pytest tests/test_imap_client.py -v` to see all tests fail
-2. Fix or implement the functionality in imap_client.py
-3. Run tests again until all pass
-4. Run `pytest --cov=imap_mcp.imap_client` to verify coverage
 
 ### 2. Implement Config Module Tests
 

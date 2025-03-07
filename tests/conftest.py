@@ -13,7 +13,13 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
-from imapclient.response_types import Address, BodyData, Envelope
+try:
+    from imapclient.response_types import Address, BodyData, Envelope
+except ImportError:
+    # Mock these classes if not available
+    class Address: pass
+    class BodyData: pass
+    class Envelope: pass
 
 from imap_mcp.models import Email, EmailAddress, EmailAttachment, EmailContent
 
