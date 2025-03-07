@@ -1,258 +1,593 @@
 # IMAP MCP Server Implementation Tasks
 
-This document outlines the detailed tasks required to complete and enhance the IMAP MCP Server implementation. Each task includes a specific prompt that can be used with Claude or another AI assistant to accomplish the task.
+This document outlines the detailed tasks required to complete and enhance the IMAP MCP Server implementation using a test-driven development (TDD) approach. Tasks are sequenced for incremental progress with maximum chance of success.
+
+## Test-Driven Development Approach
+
+For each task:
+
+1. **Write test specifications first** - Define what successful implementation looks like
+2. **Create failing tests** - Implement tests that verify the desired functionality (which should fail initially)
+3. **Implement the feature** - Write code until all tests pass
+4. **Refactor** - Clean up the implementation without breaking tests
+5. **Verify** - Run all existing tests to ensure no regression
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run tests for a specific module
+pytest tests/test_module_name.py
+
+# Run tests with coverage report
+pytest --cov=imap_mcp
+
+# Run tests in verbose mode
+pytest -v
+```
 
 ## Implementation Tasks
 
-### 1. Implement Learning Layer
+### 1. Enhance Test Infrastructure
 
-**Task Name**: Design and implement learning layer
+**Task Name**: Set up comprehensive test infrastructure
 
-**Prompt for Claude**:
+**Test Specifications**:
+- Test fixtures for mocking IMAP connections
+- Utilities for creating test email data
+- Configuration for running both unit and integration tests
+- Test coverage reporting configuration
+
+**Implementation Steps**:
 ```
-I want to implement the learning layer for the imap-mcp server as described in the README. This component should record and analyze user decisions to predict future actions. Please:
-
-1. Design the learning layer architecture:
-   - Data model for storing user interactions and decisions
-   - Feature extraction from emails and user actions
-   - Prediction mechanisms for suggesting future actions
-2. Implement the learning layer code:
-   - Create a new module `imap_mcp/learning.py`
-   - Implement classes and functions for tracking user decisions
-   - Add simple prediction capabilities based on historical actions
-3. Integrate with existing components:
-   - Update resources.py and tools.py to connect with the learning layer
-   - Modify server.py to initialize and manage the learning layer
-
-Focus on a simple but effective implementation that can learn from how I process emails over time.
-```
-
-### 2. Improve Test Coverage
-
-**Task Name**: Expand test suite
-
-**Prompt for Claude**:
-```
-The current test coverage for the imap-mcp repository is limited to just testing the models. I need help expanding the test suite to cover more components. Please:
-
-1. Analyze the current test file (tests/test_models.py) to understand the testing approach
-2. Create new test files for other major components:
-   - tests/test_config.py for configuration handling
-   - tests/test_imap_client.py for IMAP client functionality
-   - tests/test_resources.py for MCP resources
-   - tests/test_tools.py for MCP tools
-   - tests/test_server.py for server functionality
-3. Implement mock-based tests that don't require an actual IMAP server
-4. Add integration tests that can optionally connect to a real server when credentials are available
-
-Each test file should include both simple unit tests and more complex integration scenarios.
+1. First analyze the current test setup in tests/test_models.py
+2. Create a tests/conftest.py file with:
+   - IMAP mock fixtures
+   - Test email data generators
+   - Configuration fixtures
+3. Implement a test_utils.py module with helper functions
+4. Configure pytest.ini for proper test organization
+5. Set up coverage reporting configuration
 ```
 
-### 3. Add Email Processing Workflow
+**TDD Process**:
+1. Create empty test files with expected test functions (they should fail)
+2. Implement the test infrastructure code until tests pass
+3. Run `pytest --cov=imap_mcp tests/test_infrastructure.py` to verify
 
-**Task Name**: Implement interactive email processing workflow
+### 2. Expand Core IMAP Client Tests
 
-**Prompt for Claude**:
+**Task Name**: Implement comprehensive IMAP client tests
+
+**Test Specifications**:
+- Test connection/disconnection behavior
+- Test folder listing functionality
+- Test message retrieval with various filters
+- Test message action functions (mark read, move, delete)
+- Test error handling and edge cases
+
+**Implementation Steps**:
 ```
-I want to implement a structured workflow for processing emails and learning my preferences. This should guide Claude through processing each email with me. Please:
-
-1. Design the workflow architecture:
-   - States for email processing (new, reviewed, actioned, etc.)
-   - User interaction patterns for different email types
-   - Action recording and feedback mechanisms
-2. Implement the workflow code:
-   - Create necessary classes and functions
-   - Add state management
-   - Implement user interaction prompts and responses
-3. Integrate with existing components:
-   - Update resources.py and tools.py to support the workflow
-   - Connect with the learning layer for recording decisions
-   - Add workflow initialization to server.py
-
-The workflow should be intuitive and adaptable to different email types and user preferences.
-```
-
-### 4. Create Documentation
-
-**Task Name**: Generate comprehensive documentation
-
-**Prompt for Claude**:
-```
-I need to create comprehensive documentation for the imap-mcp project. Please help me:
-
-1. Set up a documentation framework:
-   - Use a tool like Sphinx for generating documentation
-   - Create a docs/ directory with appropriate structure
-2. Write documentation content:
-   - Getting started guide
-   - Configuration reference
-   - API documentation (generated from docstrings)
-   - Usage examples
-   - Workflow guide for email processing
-   - Security considerations
-3. Update docstrings throughout the codebase to ensure they're informative and consistent
-4. Create a simple build process for the documentation
-
-The documentation should be clear, comprehensive, and help both users and developers understand how to use and extend the system.
+1. Create test_imap_client.py with test cases covering:
+   - Connection establishment/teardown
+   - Authentication methods
+   - Folder operations
+   - Message retrieval operations
+   - Message modification operations
+   - Error scenarios and recovery
+2. Use mocking to simulate IMAP server responses
+3. Include tests for both successful and error conditions
 ```
 
-### 5. Containerize the Application
+**TDD Process**:
+1. Run `pytest tests/test_imap_client.py -v` to see all tests fail
+2. Fix or implement the functionality in imap_client.py
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp.imap_client` to verify coverage
 
-**Task Name**: Add Docker support
+### 3. Implement Config Module Tests
 
-**Prompt for Claude**:
+**Task Name**: Test and enhance configuration handling
+
+**Test Specifications**:
+- Test loading configurations from files
+- Test environment variable integration
+- Test validation of configuration values
+- Test default values and fallbacks
+- Test error handling for invalid configurations
+
+**Implementation Steps**:
 ```
-I want to containerize the imap-mcp application for easier deployment. Please help me:
-
-1. Create Docker configuration:
-   - Write a Dockerfile optimized for Python applications
-   - Set up appropriate base image, dependencies, and environment
-   - Configure the container to run the MCP server
-2. Add docker-compose support:
-   - Create a docker-compose.yml file
-   - Configure services, volumes, and environment variables
-3. Write documentation on:
-   - Building the Docker image
-   - Running the container
-   - Managing configuration within the Docker environment
-4. Include security best practices for containerizing an application that handles email credentials
-
-The Docker setup should make it easy to deploy and run the application in various environments.
-```
-
-### 6. Test with Real Email Account
-
-**Task Name**: End-to-end testing with a real email account
-
-**Prompt for Claude**:
-```
-I want to perform an end-to-end test of the imap-mcp server with a real email account. Please help me:
-
-1. Create a test plan:
-   - List of test scenarios covering different email operations
-   - Expected behaviors for each test
-   - Success criteria
-2. Guide me through setup:
-   - Configuration for a test email account
-   - Server startup and connection verification
-3. Execute test scenarios:
-   - Browsing email folders
-   - Searching for specific emails
-   - Reading email content
-   - Performing actions (mark as read, move, delete)
-   - Testing the learning capabilities if implemented
-4. Document results and any issues encountered
-
-We'll use a test email account to avoid any risk to important emails, focusing on verifying that the core functionality works correctly.
+1. Create test_config.py with test cases covering:
+   - Config file loading
+   - Environment variable integration
+   - Configuration validation
+   - Default values
+   - Error handling for invalid configurations
+2. Use temporary files and environment variables in tests
 ```
 
-### 7. Implement Multi-Account Support
+**TDD Process**:
+1. Run `pytest tests/test_config.py -v` to see all tests fail
+2. Fix or enhance the config.py module to handle all test cases
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp.config` to verify coverage
 
-**Task Name**: Add support for multiple email accounts
+### 4. Implement MCP Resources Tests
 
-**Prompt for Claude**:
+**Task Name**: Test and enhance MCP resources
+
+**Test Specifications**:
+- Test email resource representation
+- Test folder resource representation
+- Test resource serialization/deserialization
+- Test resource validation
+- Test resource error handling
+
+**Implementation Steps**:
 ```
-I want to enhance the imap-mcp server to support multiple email accounts simultaneously. Please help me:
-
-1. Design the multi-account architecture:
-   - How to handle multiple IMAP connections
-   - Account switching mechanisms
-   - Separate configuration for each account
-2. Update the configuration system:
-   - Modify config.py to support multiple account configurations
-   - Update the config.yaml.example file with multi-account examples
-3. Implement account management code:
-   - Create new classes/functions for managing multiple connections
-   - Add context management for account switching
-4. Update resources and tools:
-   - Modify resources to be account-aware
-   - Update tools to work with the current active account or specified account
-5. Add documentation and examples for multi-account usage
-
-The implementation should make it easy to work with multiple accounts without confusion or data leakage between accounts.
-```
-
-### 8. Implement Advanced Search Capabilities
-
-**Task Name**: Enhance search functionality
-
-**Prompt for Claude**:
-```
-I want to enhance the search capabilities of the imap-mcp server beyond the basic search functionality. Please help me:
-
-1. Design advanced search features:
-   - Full-text search within email bodies
-   - Advanced query syntax (AND, OR, NOT operators)
-   - Date range search capabilities
-   - Attachment search
-   - Search across multiple folders
-2. Implement the enhanced search code:
-   - Update the IMAP client to support advanced search criteria
-   - Create search result models for consistent handling
-   - Implement search optimization techniques
-3. Create search tools for the MCP interface:
-   - Add new search tools with appropriate parameters
-   - Create helper methods for common search patterns
-   - Provide tools for search result navigation and filtering
-4. Add documentation and examples for the advanced search features
-
-The implementation should make it easy to perform complex searches while maintaining good performance.
+1. Create test_resources.py with test cases covering:
+   - Resource initialization
+   - Resource serialization/deserialization
+   - Resource validation
+   - Resource error handling
+2. Mock necessary dependencies
 ```
 
-### 9. Create Email Analytics Features
+**TDD Process**:
+1. Run `pytest tests/test_resources.py -v` to see all tests fail
+2. Implement or fix resource functionality in resources.py
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp.resources` to verify coverage
 
-**Task Name**: Implement email analytics
+### 5. Implement MCP Tools Tests
 
-**Prompt for Claude**:
+**Task Name**: Test and enhance MCP tools
+
+**Test Specifications**:
+- Test email browsing tools
+- Test email action tools
+- Test search tools
+- Test tool parameter validation
+- Test tool error handling
+
+**Implementation Steps**:
 ```
-I want to add email analytics capabilities to the imap-mcp server to provide insights into email patterns. Please help me:
-
-1. Design email analytics features:
-   - Email volume tracking over time
-   - Sender/recipient analysis
-   - Response time analysis
-   - Topic/category distribution
-   - Unread/action required email tracking
-2. Implement analytics data collection:
-   - Create data models for storing analytics information
-   - Implement data collection mechanisms
-   - Add aggregation and analysis functions
-3. Create visualization and reporting tools:
-   - Add tools for generating analytics reports
-   - Create visualization helpers for common metrics
-   - Implement periodic reporting capabilities
-4. Integrate with existing components:
-   - Connect analytics with the learning layer
-   - Ensure analytics respects folder restrictions
-   - Add analytics initialization to server.py
-
-The analytics should provide useful insights without being overly intrusive or performance-heavy.
+1. Create test_tools.py with test cases covering:
+   - Tool initialization
+   - Tool execution with various parameters
+   - Tool validation
+   - Tool error handling
+2. Mock necessary dependencies
 ```
 
-### 10. Implement Email Notifications
+**TDD Process**:
+1. Run `pytest tests/test_tools.py -v` to see all tests fail
+2. Implement or fix tool functionality in tools.py
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp.tools` to verify coverage
 
-**Task Name**: Add notification capabilities
+### 6. Implement Server Tests
 
-**Prompt for Claude**:
+**Task Name**: Test and enhance server functionality
+
+**Test Specifications**:
+- Test server initialization
+- Test server lifecycle management
+- Test server error handling
+- Test CLI argument parsing
+- Test server integration with resources and tools
+
+**Implementation Steps**:
 ```
-I want to add notification capabilities to the imap-mcp server to alert users about important emails. Please help me:
-
-1. Design notification features:
-   - New email notifications
-   - Important email alerts based on rules/learning
-   - Reminder notifications for emails requiring action
-   - Notification channels (console, system, webhook)
-2. Implement notification mechanisms:
-   - Create notification models and prioritization
-   - Implement notification delivery for different channels
-   - Add rule-based filtering for notifications
-3. Create notification configuration:
-   - Update config.py to support notification settings
-   - Add notification examples to config.yaml.example
-4. Integrate with existing components:
-   - Connect notifications with the IMAP client
-   - Integrate with the learning layer for smart notifications
-   - Add notification initialization to server.py
-
-The notification system should be flexible, configurable, and avoid notification fatigue.
+1. Create test_server.py with test cases covering:
+   - Server initialization
+   - Lifecycle management
+   - CLI argument parsing
+   - Error handling
+2. Mock necessary dependencies
 ```
+
+**TDD Process**:
+1. Run `pytest tests/test_server.py -v` to see all tests fail
+2. Implement or fix server functionality in server.py
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp.server` to verify coverage
+
+### 7. Add Email Data Models for Learning Layer
+
+**Task Name**: Implement email data models for learning
+
+**Test Specifications**:
+- Test email feature extraction model
+- Test user action model
+- Test email categorization model
+- Test model serialization/deserialization
+- Test model validation
+
+**Implementation Steps**:
+```
+1. Create test_learning_models.py with test cases covering:
+   - Email feature extraction
+   - User action representations
+   - Email categorization
+   - Model serialization/deserialization
+   - Model validation
+2. Use realistic email examples for tests
+```
+
+**TDD Process**:
+1. Run `pytest tests/test_learning_models.py -v` to see all tests fail
+2. Create learning_models.py implementing the required models
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp.learning_models` to verify coverage
+
+### 8. Implement Basic Action Tracking
+
+**Task Name**: Implement action tracking functionality
+
+**Test Specifications**:
+- Test recording user actions on emails
+- Test storing action history
+- Test retrieving action history
+- Test serialization/deserialization of action data
+- Test storage and persistence of action data
+
+**Implementation Steps**:
+```
+1. Create test_action_tracker.py with test cases covering:
+   - Recording various user actions (read, reply, archive, etc.)
+   - Storing action history
+   - Retrieving action history with filters
+   - Action data persistence
+2. Use temporary storage for tests
+```
+
+**TDD Process**:
+1. Run `pytest tests/test_action_tracker.py -v` to see all tests fail
+2. Create action_tracker.py implementing the required functionality
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp.action_tracker` to verify coverage
+
+### 9. Implement Feature Extraction
+
+**Task Name**: Implement email feature extraction
+
+**Test Specifications**:
+- Test extracting sender features
+- Test extracting content features
+- Test extracting metadata features
+- Test extracting time-based features
+- Test feature normalization and preprocessing
+
+**Implementation Steps**:
+```
+1. Create test_feature_extraction.py with test cases covering:
+   - Sender feature extraction (domain, frequency, etc.)
+   - Content feature extraction (keywords, length, etc.)
+   - Metadata feature extraction (attachments, importance, etc.)
+   - Time-based feature extraction (time of day, day of week, etc.)
+   - Feature normalization
+2. Use diverse email examples for testing
+```
+
+**TDD Process**:
+1. Run `pytest tests/test_feature_extraction.py -v` to see all tests fail
+2. Create feature_extraction.py implementing the required functionality
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp.feature_extraction` to verify coverage
+
+### 10. Implement Basic Prediction Model
+
+**Task Name**: Implement email action prediction
+
+**Test Specifications**:
+- Test prediction model initialization
+- Test training with action history
+- Test making predictions for new emails
+- Test prediction confidence scoring
+- Test model persistence and loading
+
+**Implementation Steps**:
+```
+1. Create test_prediction_model.py with test cases covering:
+   - Model initialization with different parameters
+   - Training with historical actions
+   - Prediction generation for new emails
+   - Confidence scoring
+   - Model persistence and loading
+2. Use synthetic training data for tests
+```
+
+**TDD Process**:
+1. Run `pytest tests/test_prediction_model.py -v` to see all tests fail
+2. Create prediction_model.py implementing a simple prediction model
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp.prediction_model` to verify coverage
+
+### 11. Integrate Learning Components
+
+**Task Name**: Integrate all learning components
+
+**Test Specifications**:
+- Test end-to-end learning process
+- Test combining all learning components
+- Test integration with MCP resources and tools
+- Test learning initialization from the server
+- Test persistence across server restarts
+
+**Implementation Steps**:
+```
+1. Create test_learning_integration.py with test cases covering:
+   - End-to-end learning process
+   - Component interaction
+   - Resource and tool integration
+   - Server initialization
+   - Persistence testing
+2. Mock necessary dependencies
+```
+
+**TDD Process**:
+1. Run `pytest tests/test_learning_integration.py -v` to see all tests fail
+2. Create learning.py integrating all learning components
+3. Update server.py, resources.py, and tools.py to integrate with learning.py
+4. Run tests again until all pass
+5. Run `pytest --cov=imap_mcp.learning` to verify coverage
+
+### 12. Implement Email Processing Workflow - States
+
+**Task Name**: Implement email processing workflow states
+
+**Test Specifications**:
+- Test workflow state definitions
+- Test state transitions
+- Test state persistence
+- Test state validation
+- Test state serialization/deserialization
+
+**Implementation Steps**:
+```
+1. Create test_workflow_states.py with test cases covering:
+   - State definitions (new, reviewing, actioned, etc.)
+   - State transitions (valid and invalid)
+   - State persistence
+   - State validation
+   - State serialization/deserialization
+2. Cover both valid and invalid state transitions
+```
+
+**TDD Process**:
+1. Run `pytest tests/test_workflow_states.py -v` to see all tests fail
+2. Create workflow_states.py implementing the required functionality
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp.workflow_states` to verify coverage
+
+### 13. Implement Email Processing Workflow - Actions
+
+**Task Name**: Implement email processing workflow actions
+
+**Test Specifications**:
+- Test action definitions
+- Test action execution
+- Test action validation
+- Test action consequences on states
+- Test action history tracking
+
+**Implementation Steps**:
+```
+1. Create test_workflow_actions.py with test cases covering:
+   - Action definitions (read, reply, archive, etc.)
+   - Action execution
+   - Action validation
+   - Action state consequences
+   - Action history tracking
+2. Test with various email scenarios
+```
+
+**TDD Process**:
+1. Run `pytest tests/test_workflow_actions.py -v` to see all tests fail
+2. Create workflow_actions.py implementing the required functionality
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp.workflow_actions` to verify coverage
+
+### 14. Implement Email Processing Workflow - User Interaction
+
+**Task Name**: Implement user interaction patterns
+
+**Test Specifications**:
+- Test different interaction patterns
+- Test question prompts
+- Test user response handling
+- Test interaction history
+- Test adaptations based on learning
+
+**Implementation Steps**:
+```
+1. Create test_user_interaction.py with test cases covering:
+   - Interaction patterns
+   - Question generation
+   - Response handling
+   - Interaction history
+   - Learning-based adaptations
+2. Mock user responses for testing
+```
+
+**TDD Process**:
+1. Run `pytest tests/test_user_interaction.py -v` to see all tests fail
+2. Create user_interaction.py implementing the required functionality
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp.user_interaction` to verify coverage
+
+### 15. Integrate Workflow Components
+
+**Task Name**: Integrate all workflow components
+
+**Test Specifications**:
+- Test end-to-end workflow process
+- Test combining all workflow components
+- Test integration with MCP resources and tools
+- Test workflow initialization from the server
+- Test persistence across server restarts
+
+**Implementation Steps**:
+```
+1. Create test_workflow_integration.py with test cases covering:
+   - End-to-end workflow process
+   - Component interaction
+   - Resource and tool integration
+   - Server initialization
+   - Persistence testing
+2. Test with realistic email processing scenarios
+```
+
+**TDD Process**:
+1. Run `pytest tests/test_workflow_integration.py -v` to see all tests fail
+2. Create workflow.py integrating all workflow components
+3. Update server.py, resources.py, and tools.py to integrate with workflow.py
+4. Run tests again until all pass
+5. Run `pytest --cov=imap_mcp.workflow` to verify coverage
+
+### 16. Implement Multi-Account Foundation
+
+**Task Name**: Implement multi-account data model
+
+**Test Specifications**:
+- Test account model
+- Test account configuration
+- Test account validation
+- Test account serialization/deserialization
+- Test account storage
+
+**Implementation Steps**:
+```
+1. Create test_account_model.py with test cases covering:
+   - Account model definition
+   - Account configuration
+   - Account validation
+   - Account serialization/deserialization
+   - Account storage
+2. Include both valid and invalid account scenarios
+```
+
+**TDD Process**:
+1. Run `pytest tests/test_account_model.py -v` to see all tests fail
+2. Create account_model.py implementing the required functionality
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp.account_model` to verify coverage
+
+### 17. Implement Account Management
+
+**Task Name**: Implement account management functionality
+
+**Test Specifications**:
+- Test adding accounts
+- Test removing accounts
+- Test updating account settings
+- Test account selection/switching
+- Test account persistence
+
+**Implementation Steps**:
+```
+1. Create test_account_manager.py with test cases covering:
+   - Adding accounts
+   - Removing accounts
+   - Updating account settings
+   - Account selection/switching
+   - Account persistence
+2. Mock filesystem interactions for persistence testing
+```
+
+**TDD Process**:
+1. Run `pytest tests/test_account_manager.py -v` to see all tests fail
+2. Create account_manager.py implementing the required functionality
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp.account_manager` to verify coverage
+
+### 18. Integrate Multi-Account Support
+
+**Task Name**: Integrate multi-account support
+
+**Test Specifications**:
+- Test integration with IMAP client
+- Test integration with resources
+- Test integration with tools
+- Test integration with server
+- Test account-specific persistence
+
+**Implementation Steps**:
+```
+1. Create test_multi_account_integration.py with test cases covering:
+   - IMAP client integration
+   - Resource integration
+   - Tool integration
+   - Server integration
+   - Account-specific persistence
+2. Test with multiple account configurations
+```
+
+**TDD Process**:
+1. Run `pytest tests/test_multi_account_integration.py -v` to see all tests fail
+2. Update all relevant components to support multiple accounts
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp` to verify overall coverage
+
+### 19. Create Documentation Base
+
+**Task Name**: Set up documentation framework
+
+**Test Specifications**:
+- Test documentation build
+- Test documentation structure
+- Test API documentation generation
+- Test example code in documentation
+- Test documentation completeness
+
+**Implementation Steps**:
+```
+1. Set up Sphinx documentation framework
+2. Create basic documentation structure
+3. Configure API documentation generation
+4. Add example code that can be tested
+5. Create documentation tests to verify functionality
+```
+
+**TDD Process**:
+1. Create tests/test_documentation.py to verify examples work
+2. Set up the documentation framework
+3. Run tests to ensure documentation examples function correctly
+4. Build documentation and verify completeness
+
+### 20. Create Integration Tests with Real Account
+
+**Task Name**: Implement real-world integration tests
+
+**Test Specifications**:
+- Test connection to real IMAP servers
+- Test end-to-end email operations
+- Test learning with real emails
+- Test workflow with real emails
+- Test multi-account with real accounts
+
+**Implementation Steps**:
+```
+1. Create tests/integration/test_real_imap.py with configurable tests
+2. Implement skip mechanisms when credentials aren't available
+3. Create a safe testing environment that won't affect real emails
+4. Implement comprehensive real-world scenarios
+```
+
+**TDD Process**:
+1. Run `pytest tests/integration/test_real_imap.py -v --skip-real` initially to skip tests
+2. Provide test credentials and run without the skip flag
+3. Fix issues found during real-world testing
+4. Ensure all previous tests still pass
+
+## Bonus Tasks (After Core Implementation)
+
+1. **Containerization**: Create Docker configuration with tests
+2. **Advanced Search**: Implement enhanced search capabilities
+3. **Email Analytics**: Add email pattern analysis features
+4. **Notification System**: Implement alerts and notifications
+5. **Performance Optimization**: Improve handling of large mailboxes
