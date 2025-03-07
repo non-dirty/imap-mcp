@@ -4,12 +4,16 @@ import argparse
 import asyncio
 import logging
 import os
-from typing import Optional
+from contextlib import asynccontextmanager
+from typing import AsyncIterator, Dict, Optional
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.types import Context
 
-from imap_mcp.config import load_config
+from imap_mcp.config import ServerConfig, load_config
+from imap_mcp.imap_client import ImapClient
+from imap_mcp.resources import register_resources
+from imap_mcp.tools import register_tools
 
 # Set up logging
 logging.basicConfig(
@@ -17,6 +21,36 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("imap_mcp")
+
+
+@asynccontextmanager
+async def server_lifespan(server: FastMCP) -> AsyncIterator[Dict]:
+    """Server lifespan manager to handle IMAP client lifecycle.
+    
+    Args:
+        server: MCP server instance
+        
+    Yields:
+        Context dictionary containing IMAP client
+    """
+    # Setup IMAP client
+    config = server.config
+    if not isinstance(config, ServerConfig):
+        raise TypeError("Invalid server configuration")
+    
+    imap_client = ImapClient(config.imap, config.allowed_folders)
+    
+    try:
+        # Connect to IMAP server
+        logger.info("Connecting to IMAP server...")
+        imap_client.connect()
+        
+        # Yield the context with the IMAP client
+        yield {"imap_client": imap_client}
+    finally:
+        # Disconnect from IMAP server
+        logger.info("Disconnecting from IMAP server...")
+        imap_client.disconnect()
 
 
 def create_server(config_path: Optional[str] = None, debug: bool = False) -> FastMCP:
@@ -33,27 +67,44 @@ def create_server(config_path: Optional[str] = None, debug: bool = False) -> Fas
     if debug:
         logger.setLevel(logging.DEBUG)
         
+    # Load configuration
+    config = load_config(config_path)
+    
     # Create MCP server
     server = FastMCP(
         "IMAP",
         description="IMAP Model Context Protocol server for email processing",
         version="0.1.0",
+        lifespan=server_lifespan,
+        config=config,
     )
     
-    # Load configuration
-    config = load_config(config_path)
+    # Create IMAP client for setup (will be recreated in lifespan)
+    imap_client = ImapClient(config.imap, config.allowed_folders)
     
-    # TODO: Add IMAP client setup
+    # Register resources and tools
+    register_resources(server, imap_client)
+    register_tools(server, imap_client)
     
-    # TODO: Register resources
-    
-    # TODO: Register tools
-    
-    # Example hello world tool for initial testing
+    # Add server status tool
     @server.tool()
-    def hello(name: str) -> str:
-        """Say hello to the user."""
-        return f"Hello, {name}! This is the IMAP MCP server."
+    def server_status() -> str:
+        """Get server status and configuration info."""
+        status = {
+            "server": "IMAP MCP",
+            "version": "0.1.0",
+            "imap_host": config.imap.host,
+            "imap_port": config.imap.port,
+            "imap_user": config.imap.username,
+            "imap_ssl": config.imap.use_ssl,
+        }
+        
+        if config.allowed_folders:
+            status["allowed_folders"] = list(config.allowed_folders)
+        else:
+            status["allowed_folders"] = "All folders allowed"
+        
+        return "\n".join(f"{k}: {v}" for k, v in status.items())
     
     return server
 
