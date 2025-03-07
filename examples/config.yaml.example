@@ -1,0 +1,27 @@
+# IMAP MCP Server Configuration Example
+# Rename to config.yaml and update with your settings
+
+# IMAP server configuration
+imap:
+  # IMAP server address
+  host: imap.example.com
+  
+  # IMAP port (default: 993 for SSL, 143 for non-SSL)
+  port: 993
+  
+  # IMAP username (often your email address)
+  username: your.email@example.com
+  
+  # IMAP password (or set IMAP_PASSWORD environment variable)
+  # password: your_password
+  
+  # Use SSL connection (default: true)
+  use_ssl: true
+
+# Optional: Restrict access to specific folders
+# If not specified, all folders will be accessible
+# allowed_folders:
+#   - INBOX
+#   - Sent
+#   - Archive
+#   - Important
