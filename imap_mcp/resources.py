@@ -4,8 +4,7 @@ import json
 import logging
 from typing import Dict, List, Optional, Tuple, Union, cast
 
-from mcp.server.fastmcp import FastMCP
-from mcp.server.types import Context
+from mcp.server.fastmcp import FastMCP, Context
 
 from imap_mcp.imap_client import ImapClient
 from imap_mcp.models import Email

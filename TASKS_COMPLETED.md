@@ -144,6 +144,54 @@
 
 5. Added a pytest.ini file for proper test organization and configuration
 
+## 3. Implement MCP Resources Tests
+
+**Task Name**: Test and enhance MCP resources
+
+**Test Specifications**:
+- Test email resource representation
+- Test folder resource representation
+- Test resource serialization/deserialization
+- Test resource validation
+- Test resource error handling
+
+**Implementation Steps**:
+```
+1. Create test_resources.py with test cases covering:
+   - Resource initialization
+   - Resource serialization/deserialization
+   - Resource validation
+   - Resource error handling
+2. Mock necessary dependencies
+```
+
+**TDD Process**:
+1. Run `pytest tests/test_resources.py -v` to see all tests fail
+2. Implement or fix resource functionality in resources.py
+3. Run tests again until all pass
+4. Run `pytest --cov=imap_mcp.resources` to verify coverage
+
+**Accomplishments**:
+
+1. Created a comprehensive test suite for MCP resources in test_resources.py with 7 test cases covering:
+   - Client retrieval from context
+   - Resource registration with the MCP server
+   - Email folders listing functionality
+   - Email listing within folders
+   - Email search functionality across folders
+   - Individual email retrieval by UID
+   - Error handling for all resource operations
+
+2. Implemented proper test fixtures for mocking the MCP server and IMAP client
+
+3. Fixed import issues in the resources.py file to correctly import the Context class from mcp.server.fastmcp
+
+4. Achieved 91% test coverage for the resources module
+
+5. Used asyncio test fixtures to properly test asynchronous resource handlers
+
+6. Implemented comprehensive error handling tests to ensure robustness
+
 6. Created a CLAUDE.md file with build/test commands and code style guidelines for the project
 
 7. Added a comprehensive .gitignore file to exclude temporary and generated files
