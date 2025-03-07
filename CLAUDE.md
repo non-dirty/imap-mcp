@@ -46,6 +46,7 @@ When working on tasks from TASKS.md, follow this workflow:
 
 4. **Task Completion**:
    - Change the task's status to "completed" in the Task Tracker
+   - Change the task's priority to "-" in the Task Tracker (indicating no priority for completed tasks)
    - Move task details from TASKS.md to TASKS_COMPLETED.md
    - Add a detailed summary of accomplishments under the task in TASKS_COMPLETED.md
    - Keep task numbers unchanged - do NOT renumber tasks
@@ -53,7 +54,9 @@ When working on tasks from TASKS.md, follow this workflow:
 5. **Priority Reassessment**:
    - After completing a task, reassess priorities for remaining tasks
    - Update the priority numbers in the Task Tracker as appropriate
-   - Document the reasoning for any priority changes
+   - Ensure at least one remaining task has priority 1
+   - Priorities should be sequential starting from 1 with no gaps
+   - Document the reasoning for any priority changes in a git commit message
 
 6. **Documentation**:
    - Update docstrings in implementation

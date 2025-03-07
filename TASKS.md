@@ -29,6 +29,7 @@ When working on a task from this list, follow these steps:
 
 5. **Task Completion**:
    - Change the task's status to "completed" in the Task Tracker
+   - Change the task's priority to "-" in the Task Tracker (indicating no priority for completed tasks)
    - Move the task details from TASKS.md to TASKS_COMPLETED.md
    - Add a detailed summary of what was accomplished under the task in TASKS_COMPLETED.md
    - Do NOT renumber the tasks in TASKS.md - maintain their original numbers
@@ -36,7 +37,9 @@ When working on a task from this list, follow these steps:
 6. **Priority Reassessment**:
    - After completing a task, reassess priorities for remaining tasks
    - Update the priority numbers in the Task Tracker as appropriate
-   - Document the reasoning for any priority changes
+   - Ensure at least one remaining task has priority 1
+   - Priorities should be sequential starting from 1 with no gaps
+   - Document the reasoning for any priority changes in a git commit message
 
 7. **Commit Changes**:
    - Create a git commit with a descriptive message
@@ -87,25 +90,25 @@ pytest -v
 
 | Priority | Task # | Status      | Description                                      |
 |----------|--------|-------------|--------------------------------------------------|
-| 1        | 1      | completed   | Expand Core IMAP Client Tests                    |
-| 2        | 2      | prioritized | Implement Config Module Tests                    |
-| 3        | 3      | prioritized | Implement MCP Resources Tests                    |
-| 4        | 4      | prioritized | Implement MCP Tools Tests                        |
-| 5        | 5      | prioritized | Implement Server Tests                           |
-| 6        | 6      | prioritized | Add Email Data Models for Learning Layer         |
-| 7        | 7      | prioritized | Implement Basic Action Tracking                  |
-| 8        | 8      | prioritized | Implement Feature Extraction                     |
-| 9        | 9      | prioritized | Implement Basic Prediction Model                 |
-| 10       | 10     | prioritized | Integrate Learning Components                    |
-| 11       | 11     | prioritized | Implement Email Processing Workflow - States     |
-| 12       | 12     | prioritized | Implement Email Processing Workflow - Actions    |
-| 13       | 13     | prioritized | Implement Email Processing Workflow - User       |
-| 14       | 14     | prioritized | Integrate Workflow Components                    |
-| 15       | 15     | prioritized | Implement Multi-Account Foundation               |
-| 16       | 16     | prioritized | Implement Account Management                     |
-| 17       | 17     | prioritized | Integrate Multi-Account Support                  |
-| 18       | 18     | prioritized | Create Documentation Base                        |
-| 19       | 19     | prioritized | Create Integration Tests with Real Account       |
+| -        | 1      | completed   | Expand Core IMAP Client Tests                    |
+| 1        | 2      | prioritized | Implement Config Module Tests                    |
+| 2        | 3      | prioritized | Implement MCP Resources Tests                    |
+| 3        | 4      | prioritized | Implement MCP Tools Tests                        |
+| 4        | 5      | prioritized | Implement Server Tests                           |
+| 5        | 15     | prioritized | Implement Multi-Account Foundation               |
+| 6        | 16     | prioritized | Implement Account Management                     |
+| 7        | 6      | prioritized | Add Email Data Models for Learning Layer         |
+| 8        | 7      | prioritized | Implement Basic Action Tracking                  |
+| 9        | 8      | prioritized | Implement Feature Extraction                     |
+| 10       | 9      | prioritized | Implement Basic Prediction Model                 |
+| 11       | 10     | prioritized | Integrate Learning Components                    |
+| 12       | 11     | prioritized | Implement Email Processing Workflow - States     |
+| 13       | 12     | prioritized | Implement Email Processing Workflow - Actions    |
+| 14       | 13     | prioritized | Implement Email Processing Workflow - User       |
+| 15       | 14     | prioritized | Integrate Workflow Components                    |
+| 16       | 17     | prioritized | Integrate Multi-Account Support                  |
+| 17       | 18     | prioritized | Create Documentation Base                        |
+| 18       | 19     | prioritized | Create Integration Tests with Real Account       |
 
 
 ### 2. Implement Config Module Tests
