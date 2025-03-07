@@ -93,7 +93,7 @@ pytest -v
 | -        | 1      | completed   | Expand Core IMAP Client Tests                    |
 | -        | 2      | completed   | Implement Config Module Tests                    |
 | -        | 3      | completed   | Implement MCP Resources Tests                    |
-| 1        | 4      | prioritized | Implement MCP Tools Tests                        |
+| 1        | 4      | started     | Implement MCP Tools Tests                        |
 | 2        | 5      | prioritized | Implement Server Tests                           |
 | 3        | 15     | prioritized | Implement Multi-Account Foundation               |
 | 4        | 16     | prioritized | Implement Account Management                     |
