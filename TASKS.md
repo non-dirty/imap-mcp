@@ -30,33 +30,6 @@ pytest -v
 
 ## Implementation Tasks
 
-### 1. Enhance Test Infrastructure
-
-**Task Name**: Set up comprehensive test infrastructure
-
-**Test Specifications**:
-- Test fixtures for mocking IMAP connections
-- Utilities for creating test email data
-- Configuration for running both unit and integration tests
-- Test coverage reporting configuration
-
-**Implementation Steps**:
-```
-1. First analyze the current test setup in tests/test_models.py
-2. Create a tests/conftest.py file with:
-   - IMAP mock fixtures
-   - Test email data generators
-   - Configuration fixtures
-3. Implement a test_utils.py module with helper functions
-4. Configure pytest.ini for proper test organization
-5. Set up coverage reporting configuration
-```
-
-**TDD Process**:
-1. Create empty test files with expected test functions (they should fail)
-2. Implement the test infrastructure code until tests pass
-3. Run `pytest --cov=imap_mcp tests/test_infrastructure.py` to verify
-
 ### 2. Expand Core IMAP Client Tests
 
 **Task Name**: Implement comprehensive IMAP client tests
