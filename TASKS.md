@@ -91,53 +91,68 @@ pytest -v
 | Priority | Task # | Status      | Description                                      |
 |----------|--------|-------------|--------------------------------------------------|
 | -        | 1      | completed   | Expand Core IMAP Client Tests                    |
-| 1        | 2      | started     | Implement Config Module Tests                    |
-| 2        | 3      | prioritized | Implement MCP Resources Tests                    |
-| 3        | 4      | prioritized | Implement MCP Tools Tests                        |
-| 4        | 5      | prioritized | Implement Server Tests                           |
-| 5        | 15     | prioritized | Implement Multi-Account Foundation               |
-| 6        | 16     | prioritized | Implement Account Management                     |
-| 7        | 6      | prioritized | Add Email Data Models for Learning Layer         |
-| 8        | 7      | prioritized | Implement Basic Action Tracking                  |
-| 9        | 8      | prioritized | Implement Feature Extraction                     |
-| 10       | 9      | prioritized | Implement Basic Prediction Model                 |
-| 11       | 10     | prioritized | Integrate Learning Components                    |
-| 12       | 11     | prioritized | Implement Email Processing Workflow - States     |
-| 13       | 12     | prioritized | Implement Email Processing Workflow - Actions    |
-| 14       | 13     | prioritized | Implement Email Processing Workflow - User       |
-| 15       | 14     | prioritized | Integrate Workflow Components                    |
-| 16       | 17     | prioritized | Integrate Multi-Account Support                  |
-| 17       | 18     | prioritized | Create Documentation Base                        |
-| 18       | 19     | prioritized | Create Integration Tests with Real Account       |
+| -        | 2      | completed   | Implement Config Module Tests                    |
+| 1        | 3      | prioritized | Implement MCP Resources Tests                    |
+| 2        | 4      | prioritized | Implement MCP Tools Tests                        |
+| 3        | 5      | prioritized | Implement Server Tests                           |
+| 4        | 15     | prioritized | Implement Multi-Account Foundation               |
+| 5        | 16     | prioritized | Implement Account Management                     |
+| 6        | 6      | prioritized | Add Email Data Models for Learning Layer         |
+| 7        | 7      | prioritized | Implement Basic Action Tracking                  |
+| 8        | 8      | prioritized | Implement Feature Extraction                     |
+| 9        | 9      | prioritized | Implement Basic Prediction Model                 |
+| 10       | 10     | prioritized | Integrate Learning Components                    |
+| 11       | 11     | prioritized | Implement Email Processing Workflow - States     |
+| 12       | 12     | prioritized | Implement Email Processing Workflow - Actions    |
+| 13       | 13     | prioritized | Implement Email Processing Workflow - User       |
+| 14       | 14     | prioritized | Integrate Workflow Components                    |
+| 15       | 17     | prioritized | Integrate Multi-Account Support                  |
+| 16       | 18     | prioritized | Create Documentation Base                        |
+| 17       | 19     | prioritized | Create Integration Tests with Real Account       |
+| -        | 20     | proposed    | Create Task Generation Tool                      |
+| -        | 21     | proposed    | Implement Automated Task Status Updates          |
+| -        | 22     | proposed    | Develop Task Dependency Visualization            |
 
+### Process Improvement Tasks
 
-### 2. Implement Config Module Tests
+#### 20. Create Task Generation Tool
 
-**Task Name**: Test and enhance configuration handling
+**Task Name**: Develop a script to automate task creation and management
 
-**Test Specifications**:
-- Test loading configurations from files
-- Test environment variable integration
-- Test validation of configuration values
-- Test default values and fallbacks
-- Test error handling for invalid configurations
+**Description**:
+Create a command-line tool that can generate new task entries for the TASKS.md file following the established format. This tool would:
+- Generate task numbers automatically based on the highest existing number
+- Create task entries with required sections (Task Name, Test Specifications, Implementation Steps, TDD Process)
+- Allow for task templates to ensure consistency
+- Update the Task Tracker table automatically
 
-**Implementation Steps**:
-```
-1. Create test_config.py with test cases covering:
-   - Config file loading
-   - Environment variable integration
-   - Configuration validation
-   - Default values
-   - Error handling for invalid configurations
-2. Use temporary files and environment variables in tests
-```
+This would improve efficiency when creating new tasks and ensure consistent formatting.
 
-**TDD Process**:
-1. Run `pytest tests/test_config.py -v` to see all tests fail
-2. Fix or enhance the config.py module to handle all test cases
-3. Run tests again until all pass
-4. Run `pytest --cov=imap_mcp.config` to verify coverage
+#### 21. Implement Automated Task Status Updates
+
+**Task Name**: Create automated task status tracking
+
+**Description**:
+Develop a Git hook or workflow tool that automatically updates task statuses based on git activity:
+- Detect when work on a task begins (first commit related to a task) and update status to "started"
+- Monitor test coverage and execution to help determine when a task is "completed"
+- Automate the movement of completed tasks to TASKS_COMPLETED.md
+- Update priority numbers automatically when tasks are completed
+
+This would reduce manual maintenance of the task tracker and ensure it stays up-to-date.
+
+#### 22. Develop Task Dependency Visualization
+
+**Task Name**: Create visualization tools for task dependencies
+
+**Description**:
+Implement a tool that can:
+- Parse the TASKS.md file to identify task dependencies
+- Generate a visual dependency graph showing which tasks depend on others
+- Help identify the optimal order for task implementation
+- Flag potential bottlenecks or critical path tasks
+
+This visualization would help with planning and prioritization, making it easier to identify which tasks should be tackled next for maximum efficiency.
 
 ### 3. Implement MCP Resources Tests
 

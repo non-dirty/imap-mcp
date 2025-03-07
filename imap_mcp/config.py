@@ -84,9 +84,12 @@ def load_config(config_path: Optional[str] = None) -> ServerConfig:
     # Load from specified path or try default locations
     config_data = {}
     if config_path:
-        with open(config_path, "r") as f:
-            config_data = yaml.safe_load(f) or {}
-        logger.info(f"Loaded configuration from {config_path}")
+        try:
+            with open(config_path, "r") as f:
+                config_data = yaml.safe_load(f) or {}
+            logger.info(f"Loaded configuration from {config_path}")
+        except FileNotFoundError:
+            logger.warning(f"Configuration file not found: {config_path}")
     else:
         for path in default_locations:
             expanded_path = path.expanduser()
