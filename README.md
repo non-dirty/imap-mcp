@@ -17,32 +17,35 @@ The IMAP MCP server is designed to work with Claude or any other MCP-compatible 
 ## Features
 
 - **Email Authentication**: Secure access to IMAP servers with various authentication methods
-- **Email Browsing**: List folders and messages with filtering options
-- **Email Content**: Read message contents including text, HTML, and attachments
-- **Email Actions**: Move, delete, mark as read/unread, flag messages
-- **Search**: Advanced search capabilities across folders
-- **Interaction Patterns**: Structured patterns for processing emails and learning preferences
-- **Learning Layer**: Record and analyze user decisions to predict future actions
+- **Email Browsing**: List folders and messages with filtering options ✓
+- **Email Content**: Read message contents including text, HTML, and attachments ✓
+- **Email Actions**: Move, delete, mark as read/unread, flag messages ✓
+- **Search**: Basic search capabilities across folders ✓
+- **Interaction Patterns**: Structured patterns for processing emails and learning preferences (planned)
+- **Learning Layer**: Record and analyze user decisions to predict future actions (planned)
 
-## Project Structure
+## Current Project Structure
 
-The project is organized as follows:
+The project is currently organized as follows:
 
 ```
 .
-├── src/                 # Source code
-│   ├── config/          # Configuration handling
-│   ├── imap/            # IMAP client implementation
-│   ├── models/          # Data models
-│   ├── resources/       # MCP resources implementation
-│   ├── tools/           # MCP tools implementation
-│   ├── learning/        # Learning engine implementation
-│   └── server.py        # Main server implementation
-├── tests/               # Test suite
-├── examples/            # Example configurations and usage
-├── docker/              # Docker configuration
-├── docs/                # Documentation
-└── README.md            # This file
+├── examples/              # Example configurations
+│   └── config.yaml.example
+├── imap_mcp/              # Source code
+│   ├── __init__.py
+│   ├── config.py          # Configuration handling
+│   ├── imap_client.py     # IMAP client implementation
+│   ├── models.py          # Data models
+│   ├── resources.py       # MCP resources implementation
+│   ├── server.py          # Main server implementation
+│   └── tools.py           # MCP tools implementation
+├── tests/                 # Test suite
+│   ├── __init__.py
+│   └── test_models.py
+├── INSTALLATION.md        # Detailed installation guide
+├── pyproject.toml         # Project configuration
+└── README.md              # This file
 ```
 
 ## Getting Started
@@ -51,22 +54,29 @@ The project is organized as follows:
 
 - Python 3.8 or higher
 - An IMAP-enabled email account
+- [uv](https://docs.astral.sh/uv/) - Python package installer
 - Claude Desktop (or another MCP-compatible client)
 
 ### Installation
 
-1. Clone the repository:
+See [INSTALLATION.md](INSTALLATION.md) for detailed installation instructions.
+
+Quick start:
+
+1. Install the uv tool from [https://docs.astral.sh/uv/](https://docs.astral.sh/uv/)
+
+2. Clone the repository:
    ```bash
    git clone https://github.com/non-dirty/imap-mcp.git
    cd imap-mcp
    ```
 
-2. Install dependencies:
+3. Install dependencies:
    ```bash
    pip install -e .
    ```
 
-3. Configure your email account:
+4. Configure your email account:
    ```bash
    cp examples/config.yaml.example config.yaml
    # Edit config.yaml with your email settings
@@ -124,13 +134,6 @@ pip install -e ".[dev]"
 pytest
 ```
 
-### Building Documentation
-
-```bash
-cd docs
-make html
-```
-
 ## Security Considerations
 
 This MCP server requires access to your email account, which contains sensitive personal information. Please be aware of the following security considerations:
@@ -143,9 +146,9 @@ This MCP server requires access to your email account, which contains sensitive 
 ## Project Roadmap
 
 - [x] Project initialization and repository setup
-- [ ] Basic IMAP integration
-- [ ] Email resource implementation
-- [ ] Email tool implementation
+- [x] Basic IMAP integration
+- [x] Email resource implementation
+- [x] Email tool implementation
 - [ ] User preference learning implementation
 - [ ] Advanced search capabilities
 - [ ] Multi-account support
