@@ -2,6 +2,37 @@
 
 This document outlines the detailed tasks required to complete and enhance the IMAP MCP Server implementation using a test-driven development (TDD) approach. Tasks are sequenced for incremental progress with maximum chance of success.
 
+## Task Workflow for Claude
+
+When working on a task from this list, follow these steps:
+
+1. **Task Analysis**:
+   - First, carefully read and understand the task requirements
+   - Determine if the task needs to be broken down into smaller subtasks
+   - If needed, update TASKS.md with the subtask breakdown
+
+2. **Test-Driven Development**:
+   - Write test specifications first before implementation
+   - Create failing tests that verify the desired functionality
+   - Implement the feature until all tests pass
+   - Refactor the code while ensuring tests continue to pass
+   - Run the full test suite to check for regressions
+
+3. **Documentation**:
+   - Update docstrings and comments in the implementation
+   - Add any necessary examples or usage instructions to README.md
+   - If adding new commands or processes, update CLAUDE.md accordingly
+
+4. **Task Completion**:
+   - Once the task is complete, move it from TASKS.md to TASKS_COMPLETED.md
+   - Add a detailed summary of what was accomplished under the task in TASKS_COMPLETED.md
+   - Remove the completed task from TASKS.md and adjust the numbering of remaining tasks
+
+5. **Commit Changes**:
+   - Create a git commit with a descriptive message
+   - Include the task number and name in the commit message
+   - Push the changes to GitHub
+
 ## Test-Driven Development Approach
 
 For each task:
@@ -30,7 +61,7 @@ pytest -v
 
 ## Implementation Tasks
 
-### 2. Expand Core IMAP Client Tests
+### 1. Expand Core IMAP Client Tests
 
 **Task Name**: Implement comprehensive IMAP client tests
 
@@ -60,7 +91,7 @@ pytest -v
 3. Run tests again until all pass
 4. Run `pytest --cov=imap_mcp.imap_client` to verify coverage
 
-### 3. Implement Config Module Tests
+### 2. Implement Config Module Tests
 
 **Task Name**: Test and enhance configuration handling
 
@@ -88,7 +119,7 @@ pytest -v
 3. Run tests again until all pass
 4. Run `pytest --cov=imap_mcp.config` to verify coverage
 
-### 4. Implement MCP Resources Tests
+### 3. Implement MCP Resources Tests
 
 **Task Name**: Test and enhance MCP resources
 
@@ -115,7 +146,7 @@ pytest -v
 3. Run tests again until all pass
 4. Run `pytest --cov=imap_mcp.resources` to verify coverage
 
-### 5. Implement MCP Tools Tests
+### 4. Implement MCP Tools Tests
 
 **Task Name**: Test and enhance MCP tools
 
@@ -142,7 +173,7 @@ pytest -v
 3. Run tests again until all pass
 4. Run `pytest --cov=imap_mcp.tools` to verify coverage
 
-### 6. Implement Server Tests
+### 5. Implement Server Tests
 
 **Task Name**: Test and enhance server functionality
 
@@ -169,7 +200,7 @@ pytest -v
 3. Run tests again until all pass
 4. Run `pytest --cov=imap_mcp.server` to verify coverage
 
-### 7. Add Email Data Models for Learning Layer
+### 6. Add Email Data Models for Learning Layer
 
 **Task Name**: Implement email data models for learning
 
@@ -197,7 +228,7 @@ pytest -v
 3. Run tests again until all pass
 4. Run `pytest --cov=imap_mcp.learning_models` to verify coverage
 
-### 8. Implement Basic Action Tracking
+### 7. Implement Basic Action Tracking
 
 **Task Name**: Implement action tracking functionality
 
@@ -224,7 +255,7 @@ pytest -v
 3. Run tests again until all pass
 4. Run `pytest --cov=imap_mcp.action_tracker` to verify coverage
 
-### 9. Implement Feature Extraction
+### 8. Implement Feature Extraction
 
 **Task Name**: Implement email feature extraction
 
@@ -252,7 +283,7 @@ pytest -v
 3. Run tests again until all pass
 4. Run `pytest --cov=imap_mcp.feature_extraction` to verify coverage
 
-### 10. Implement Basic Prediction Model
+### 9. Implement Basic Prediction Model
 
 **Task Name**: Implement email action prediction
 
@@ -280,7 +311,7 @@ pytest -v
 3. Run tests again until all pass
 4. Run `pytest --cov=imap_mcp.prediction_model` to verify coverage
 
-### 11. Integrate Learning Components
+### 10. Integrate Learning Components
 
 **Task Name**: Integrate all learning components
 
@@ -309,7 +340,7 @@ pytest -v
 4. Run tests again until all pass
 5. Run `pytest --cov=imap_mcp.learning` to verify coverage
 
-### 12. Implement Email Processing Workflow - States
+### 11. Implement Email Processing Workflow - States
 
 **Task Name**: Implement email processing workflow states
 
@@ -337,7 +368,7 @@ pytest -v
 3. Run tests again until all pass
 4. Run `pytest --cov=imap_mcp.workflow_states` to verify coverage
 
-### 13. Implement Email Processing Workflow - Actions
+### 12. Implement Email Processing Workflow - Actions
 
 **Task Name**: Implement email processing workflow actions
 
@@ -365,7 +396,7 @@ pytest -v
 3. Run tests again until all pass
 4. Run `pytest --cov=imap_mcp.workflow_actions` to verify coverage
 
-### 14. Implement Email Processing Workflow - User Interaction
+### 13. Implement Email Processing Workflow - User Interaction
 
 **Task Name**: Implement user interaction patterns
 
@@ -393,7 +424,7 @@ pytest -v
 3. Run tests again until all pass
 4. Run `pytest --cov=imap_mcp.user_interaction` to verify coverage
 
-### 15. Integrate Workflow Components
+### 14. Integrate Workflow Components
 
 **Task Name**: Integrate all workflow components
 
@@ -422,7 +453,7 @@ pytest -v
 4. Run tests again until all pass
 5. Run `pytest --cov=imap_mcp.workflow` to verify coverage
 
-### 16. Implement Multi-Account Foundation
+### 15. Implement Multi-Account Foundation
 
 **Task Name**: Implement multi-account data model
 
@@ -450,7 +481,7 @@ pytest -v
 3. Run tests again until all pass
 4. Run `pytest --cov=imap_mcp.account_model` to verify coverage
 
-### 17. Implement Account Management
+### 16. Implement Account Management
 
 **Task Name**: Implement account management functionality
 
@@ -478,7 +509,7 @@ pytest -v
 3. Run tests again until all pass
 4. Run `pytest --cov=imap_mcp.account_manager` to verify coverage
 
-### 18. Integrate Multi-Account Support
+### 17. Integrate Multi-Account Support
 
 **Task Name**: Integrate multi-account support
 
@@ -506,7 +537,7 @@ pytest -v
 3. Run tests again until all pass
 4. Run `pytest --cov=imap_mcp` to verify overall coverage
 
-### 19. Create Documentation Base
+### 18. Create Documentation Base
 
 **Task Name**: Set up documentation framework
 
@@ -532,7 +563,7 @@ pytest -v
 3. Run tests to ensure documentation examples function correctly
 4. Build documentation and verify completeness
 
-### 20. Create Integration Tests with Real Account
+### 19. Create Integration Tests with Real Account
 
 **Task Name**: Implement real-world integration tests
 

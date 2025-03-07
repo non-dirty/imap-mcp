@@ -17,3 +17,29 @@
 - Documentation: Write docstrings for all classes and methods
 - Testing: Follow TDD pattern (write tests before implementation)
 - Project structure follows the standard Python package layout
+
+## Task Workflow
+When working on tasks from TASKS.md, follow this workflow:
+
+1. **Task Analysis**:
+   - Read and understand the task requirements
+   - Assess if the task needs to be broken down into smaller subtasks
+   - If needed, update TASKS.md with the subtask breakdown
+
+2. **Test-Driven Development**:
+   - Write tests first that verify the desired functionality
+   - Implement the feature until all tests pass
+   - Refactor code while maintaining test coverage
+   - Run full test suite to check for regressions
+
+3. **Task Completion**:
+   - Move completed task from TASKS.md to TASKS_COMPLETED.md
+   - Add a detailed summary of accomplishments under the task in TASKS_COMPLETED.md
+   - Update task numbering in TASKS.md to be sequential
+   - Commit changes with a descriptive message (including task number)
+   - Push commits to GitHub repository
+
+4. **Documentation**:
+   - Update docstrings in implementation
+   - Update README.md or other docs if needed
+   - Add new commands or processes to CLAUDE.md if relevant
