@@ -91,7 +91,7 @@ pytest -v
 | Priority | Task # | Status      | Description                                      |
 |----------|--------|-------------|--------------------------------------------------|
 | -        | 1      | completed   | Expand Core IMAP Client Tests                    |
-| 1        | 2      | prioritized | Implement Config Module Tests                    |
+| 1        | 2      | started     | Implement Config Module Tests                    |
 | 2        | 3      | prioritized | Implement MCP Resources Tests                    |
 | 3        | 4      | prioritized | Implement MCP Tools Tests                        |
 | 4        | 5      | prioritized | Implement Server Tests                           |
