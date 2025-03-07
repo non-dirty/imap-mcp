@@ -51,7 +51,7 @@
 
 6. Added documentation for using `uv` to manage the project's Python environment
 
-## 2. Enhance Test Infrastructure
+## 0. Enhance Test Infrastructure
 
 **Task Name**: Set up comprehensive test infrastructure
 
