@@ -11,27 +11,49 @@ When working on a task from this list, follow these steps:
    - Determine if the task needs to be broken down into smaller subtasks
    - If needed, update TASKS.md with the subtask breakdown
 
-2. **Test-Driven Development**:
+2. **Task Status Update**:
+   - Update the task's status in the Task Tracker table to "started"
+   - Commit this change before beginning implementation
+
+3. **Test-Driven Development**:
    - Write test specifications first before implementation
    - Create failing tests that verify the desired functionality
    - Implement the feature until all tests pass
    - Refactor the code while ensuring tests continue to pass
    - Run the full test suite to check for regressions
 
-3. **Documentation**:
+4. **Documentation**:
    - Update docstrings and comments in the implementation
    - Add any necessary examples or usage instructions to README.md
    - If adding new commands or processes, update CLAUDE.md accordingly
 
-4. **Task Completion**:
-   - Once the task is complete, move it from TASKS.md to TASKS_COMPLETED.md
+5. **Task Completion**:
+   - Change the task's status to "completed" in the Task Tracker
+   - Move the task details from TASKS.md to TASKS_COMPLETED.md
    - Add a detailed summary of what was accomplished under the task in TASKS_COMPLETED.md
-   - Remove the completed task from TASKS.md and adjust the numbering of remaining tasks
+   - Do NOT renumber the tasks in TASKS.md - maintain their original numbers
 
-5. **Commit Changes**:
+6. **Priority Reassessment**:
+   - After completing a task, reassess priorities for remaining tasks
+   - Update the priority numbers in the Task Tracker as appropriate
+   - Document the reasoning for any priority changes
+
+7. **Commit Changes**:
    - Create a git commit with a descriptive message
    - Include the task number and name in the commit message
    - Push the changes to GitHub
+
+## Task Status Definitions
+
+Tasks in the Task Tracker can have the following statuses:
+
+- **proposed**: Initial idea for a task, not yet fully defined
+- **defined**: Task has been specified but not yet prioritized
+- **prioritized**: Task has been assigned a priority number
+- **started**: Work on the task has begun
+- **completed**: Implementation is finished and passes all tests
+- **reviewed**: Task has been reviewed by another contributor
+- **archived**: Task has been moved to TASKS_COMPLETED.md
 
 ## Test-Driven Development Approach
 
@@ -60,6 +82,30 @@ pytest -v
 ```
 
 ## Implementation Tasks
+
+### Task Tracker
+
+| Priority | Task # | Status      | Description                                      |
+|----------|--------|-------------|--------------------------------------------------|
+| 1        | 1      | prioritized | Expand Core IMAP Client Tests                    |
+| 2        | 2      | prioritized | Implement Config Module Tests                    |
+| 3        | 3      | prioritized | Implement MCP Resources Tests                    |
+| 4        | 4      | prioritized | Implement MCP Tools Tests                        |
+| 5        | 5      | prioritized | Implement Server Tests                           |
+| 6        | 6      | prioritized | Add Email Data Models for Learning Layer         |
+| 7        | 7      | prioritized | Implement Basic Action Tracking                  |
+| 8        | 8      | prioritized | Implement Feature Extraction                     |
+| 9        | 9      | prioritized | Implement Basic Prediction Model                 |
+| 10       | 10     | prioritized | Integrate Learning Components                    |
+| 11       | 11     | prioritized | Implement Email Processing Workflow - States     |
+| 12       | 12     | prioritized | Implement Email Processing Workflow - Actions    |
+| 13       | 13     | prioritized | Implement Email Processing Workflow - User       |
+| 14       | 14     | prioritized | Integrate Workflow Components                    |
+| 15       | 15     | prioritized | Implement Multi-Account Foundation               |
+| 16       | 16     | prioritized | Implement Account Management                     |
+| 17       | 17     | prioritized | Integrate Multi-Account Support                  |
+| 18       | 18     | prioritized | Create Documentation Base                        |
+| 19       | 19     | prioritized | Create Integration Tests with Real Account       |
 
 ### 1. Expand Core IMAP Client Tests
 

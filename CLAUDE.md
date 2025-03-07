@@ -26,20 +26,44 @@ When working on tasks from TASKS.md, follow this workflow:
    - Assess if the task needs to be broken down into smaller subtasks
    - If needed, update TASKS.md with the subtask breakdown
 
-2. **Test-Driven Development**:
+2. **Task Status Update**:
+   - Update the task's status in the Task Tracker table from "prioritized" to "started"
+   - Commit this change before beginning implementation
+
+3. **Test-Driven Development**:
    - Write tests first that verify the desired functionality
    - Implement the feature until all tests pass
    - Refactor code while maintaining test coverage
    - Run full test suite to check for regressions
 
-3. **Task Completion**:
-   - Move completed task from TASKS.md to TASKS_COMPLETED.md
+4. **Task Completion**:
+   - Change the task's status to "completed" in the Task Tracker
+   - Move task details from TASKS.md to TASKS_COMPLETED.md
    - Add a detailed summary of accomplishments under the task in TASKS_COMPLETED.md
-   - Update task numbering in TASKS.md to be sequential
-   - Commit changes with a descriptive message (including task number)
-   - Push commits to GitHub repository
+   - Keep task numbers unchanged - do NOT renumber tasks
 
-4. **Documentation**:
+5. **Priority Reassessment**:
+   - After completing a task, reassess priorities for remaining tasks
+   - Update the priority numbers in the Task Tracker as appropriate
+   - Document the reasoning for any priority changes
+
+6. **Documentation**:
    - Update docstrings in implementation
    - Update README.md or other docs if needed
    - Add new commands or processes to CLAUDE.md if relevant
+
+7. **Commit Changes**:
+   - Create a descriptive commit message including the task number
+   - Push commits to GitHub repository
+
+## Task Status Definitions
+
+Tasks in the Task Tracker can have the following statuses:
+
+- **proposed**: Initial idea for a task, not yet fully defined
+- **defined**: Task has been specified but not yet prioritized
+- **prioritized**: Task has been assigned a priority number
+- **started**: Work on the task has begun
+- **completed**: Implementation is finished and passes all tests
+- **reviewed**: Task has been reviewed by another contributor
+- **archived**: Task has been moved to TASKS_COMPLETED.md
