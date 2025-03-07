@@ -56,18 +56,17 @@ class EmailAddress:
         Returns:
             EmailAddress object
         """
-        # Extract name and address
-        match = re.match(r'"?([^"<]*)"?\s*<?([^>]*)>?', address_str.strip())
+        # For the special case of just an email address without brackets
+        if '@' in address_str and '<' not in address_str:
+            return cls(name="", address=address_str.strip())
+            
+        # Extract name and address with angle brackets
+        match = re.match(r'"?([^"<]*)"?\s*<([^>]*)>', address_str.strip())
         if match:
             name, address = match.groups()
-            name = name.strip()
-            address = address.strip()
-            # If no name, use the local part of the address
-            if not name and "@" in address:
-                name = address.split("@")[0]
-            return cls(name=name, address=address)
-        
-        # No pattern match, treat the whole string as an address
+            return cls(name=name.strip(), address=address.strip())
+            
+        # Fallback: treat the whole string as an address
         return cls(name="", address=address_str.strip())
     
     def __str__(self) -> str:
