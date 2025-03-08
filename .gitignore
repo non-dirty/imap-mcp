@@ -49,3 +49,6 @@ ENV/
 
 # OAuth2
 client_secret_*.json
+
+# Configuration
+config.yaml
