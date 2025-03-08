@@ -194,6 +194,105 @@
 
 6. Created a CLAUDE.md file with build/test commands and code style guidelines for the project
 
+## 4. Implement MCP Tools Tests
+
+**Task Name**: Test and enhance MCP tools
+
+**Test Specifications**:
+
+1. Created tests for email browsing tools in test_tools.py:
+   - Tests for move_email functionality
+   - Tests for mark_as_read/unread functionality
+   - Tests for flag/unflag email functionality
+   - Tests for email deletion
+
+2. Created tests for email action tools:
+   - Tests for process_email with different actions (move, read, unread, flag, delete)
+   - Tests for action validation and error handling
+
+3. Created tests for search tools:
+   - Tests for search_emails with different criteria
+   - Tests for folder-specific and multi-folder searches
+   - Tests for search result limits and formatting
+
+4. Created tests for parameter validation in all tools:
+   - Tests with valid parameters
+   - Tests with invalid or missing parameters
+   - Tests with edge case values
+
+5. Created tests for error handling in tools:
+   - Tests for network errors
+   - Tests for invalid email/folder combinations
+   - Tests for server errors
+
+**Fixes and Improvements**:
+
+1. Fixed parameter order issues in tools.py for multiple functions:
+   - Moved context parameter before optional parameters in flag_email, search_emails, and process_email
+   - Ensured proper function signatures throughout the tools module
+
+2. Fixed import errors in both tools.py and test_tools.py:
+   - Updated Context import to use mcp.server.fastmcp instead of mcp.server.types
+
+3. Created comprehensive test mocks and fixtures:
+   - Created mock IMAP client with controlled responses
+   - Created mock MCP server with mock tool registration
+   - Created mock Email and EmailAddress objects for testing
+
+4. Achieved 100% test passing rate with 9 comprehensive test cases covering all major tool functionalities
+
+5. Used Test-Driven Development approach to identify and fix issues in the tools module
+
 7. Added a comprehensive .gitignore file to exclude temporary and generated files
 
 This test infrastructure provides a solid foundation for implementing the remaining tasks in the project using a test-driven development approach.
+
+## 20. Set up Google Cloud Project for OAuth2
+
+**Task Name**: Set up Google Cloud Project for Gmail OAuth2
+
+**Test Specifications**:
+- Create a structured configuration file for OAuth2 credentials
+- Validate that config file correctly loads client ID and secret
+- Ensure environment variables can override config file values
+
+**Implementation Steps**:
+1. ✅ Create a Google Cloud Project via the [Google Cloud Console](https://console.cloud.google.com/)
+2. ✅ Enable the Gmail API for your project
+3. ✅ Configure the OAuth consent screen:
+   - ✅ Select "External" user type
+   - ✅ Add required app information (name, support email)
+   - ✅ Add scope: "https://mail.google.com/"
+4. ✅ Create OAuth Client ID credentials (type: Desktop application)
+5. ✅ Download the credentials JSON (client_secret_*.json) and add to .gitignore
+6. ✅ Add the client ID and secret to your application config
+7. ✅ Create tests to validate config loading
+
+**TDD Process**:
+1. ✅ Create tests for OAuth2 config validation
+2. ✅ Implement credential loading function
+3. ✅ Run tests to verify functionality
+
+**Accomplishments**:
+
+1. Created a complete OAuth2 implementation for Gmail authentication in the IMAP MCP server, including:
+   - Configuration module (`oauth2_config.py`) to handle loading and validating OAuth2 settings
+   - Authentication setup tool (`auth_setup.py`) to facilitate the OAuth2 flow
+   - Browser-based authentication component (`browser_auth.py`) for handling user authorization
+
+2. Set up a Google Cloud Project with the Gmail API enabled and configured OAuth2 credentials:
+   - Created OAuth consent screen with appropriate scopes
+   - Generated client ID and secret for desktop application
+   - Securely stored credentials in the project
+
+3. Updated the configuration system to support OAuth2:
+   - Enhanced `config.yaml` to include OAuth2 settings (client ID, client secret, tokens)
+   - Added support for environment variables (GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN)
+   - Implemented token refresh mechanism to handle expired access tokens
+
+4. Created test script `test_oauth2_gmail.py` to verify the OAuth2 implementation:
+   - Successfully connects to Gmail using OAuth2
+   - Lists mailboxes to confirm authentication works
+   - Properly manages token lifecycle
+
+5. Updated the IMAP client to seamlessly work with both traditional password authentication and OAuth2 based on the email provider

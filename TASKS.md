@@ -90,32 +90,37 @@ pytest -v
 
 | Priority | Task # | Status      | Description                                      |
 |----------|--------|-------------|--------------------------------------------------|
+| -        | 20     | completed   | Set up Google Cloud Project for OAuth2           |
+| 2        | 21     | prioritized | Implement Gmail OAuth2 Authentication Flow       |
+| 3        | 22     | prioritized | Implement Secure Token Storage                   |
+| 4        | 23     | prioritized | Test Basic IMAP Folder Listing with OAuth2       |
 | -        | 1      | completed   | Expand Core IMAP Client Tests                    |
 | -        | 2      | completed   | Implement Config Module Tests                    |
 | -        | 3      | completed   | Implement MCP Resources Tests                    |
-| 1        | 4      | started     | Implement MCP Tools Tests                        |
-| 2        | 5      | prioritized | Implement Server Tests                           |
-| 3        | 15     | prioritized | Implement Multi-Account Foundation               |
-| 4        | 16     | prioritized | Implement Account Management                     |
-| 5        | 6      | prioritized | Add Email Data Models for Learning Layer         |
-| 6        | 7      | prioritized | Implement Basic Action Tracking                  |
-| 7        | 8      | prioritized | Implement Feature Extraction                     |
-| 8        | 9      | prioritized | Implement Basic Prediction Model                 |
-| 9        | 10     | prioritized | Integrate Learning Components                    |
-| 10       | 11     | prioritized | Implement Email Processing Workflow - States     |
-| 11       | 12     | prioritized | Implement Email Processing Workflow - Actions    |
-| 12       | 13     | prioritized | Implement Email Processing Workflow - User       |
-| 13       | 14     | prioritized | Integrate Workflow Components                    |
-| 14       | 17     | prioritized | Integrate Multi-Account Support                  |
-| 15       | 18     | prioritized | Create Documentation Base                        |
-| 16       | 19     | prioritized | Create Integration Tests with Real Account       |
-| -        | 20     | proposed    | Create Task Generation Tool                      |
-| -        | 21     | proposed    | Implement Automated Task Status Updates          |
-| -        | 22     | proposed    | Develop Task Dependency Visualization            |
+| -        | 4      | completed   | Implement MCP Tools Tests                        |
+| 5        | 5      | prioritized | Implement Server Tests                           |
+| 6        | 6      | prioritized | Add Email Data Models for Learning Layer         |
+| 7        | 7      | prioritized | Implement Basic Action Tracking                  |
+| 8        | 8      | prioritized | Implement Feature Extraction                     |
+| 9        | 9      | prioritized | Implement Basic Prediction Model                 |
+| 10       | 10     | prioritized | Integrate Learning Components                    |
+| 11       | 11     | prioritized | Implement Email Processing Workflow - States     |
+| 12       | 12     | prioritized | Implement Email Processing Workflow - Actions    |
+| 13       | 13     | prioritized | Implement Email Processing Workflow - User       |
+| 14       | 14     | prioritized | Integrate Workflow Components                    |
+| 15       | 15     | prioritized | Implement Multi-Account Foundation               |
+| 16       | 16     | prioritized | Implement Account Management                     |
+| 17       | 17     | prioritized | Integrate Multi-Account Support                  |
+| 18       | 18     | prioritized | Create Documentation Base                        |
+| 19       | 19     | prioritized | Create Integration Tests with Real Account       |
+| 20       | 25     | prioritized | Fix Virtual Environment Duplication Issue        |
+| -        | 24     | proposed    | Create Task Generation Tool                      |
+| -        | 26     | proposed    | Implement Automated Task Status Updates          |
+| -        | 27     | proposed    | Develop Task Dependency Visualization            |
 
 ### Process Improvement Tasks
 
-#### 20. Create Task Generation Tool
+#### 24. Create Task Generation Tool
 
 **Task Name**: Develop a script to automate task creation and management
 
@@ -128,7 +133,7 @@ Create a command-line tool that can generate new task entries for the TASKS.md f
 
 This would improve efficiency when creating new tasks and ensure consistent formatting.
 
-#### 21. Implement Automated Task Status Updates
+#### 26. Implement Automated Task Status Updates
 
 **Task Name**: Create automated task status tracking
 
@@ -141,7 +146,7 @@ Develop a Git hook or workflow tool that automatically updates task statuses bas
 
 This would reduce manual maintenance of the task tracker and ensure it stays up-to-date.
 
-#### 22. Develop Task Dependency Visualization
+#### 27. Develop Task Dependency Visualization
 
 **Task Name**: Create visualization tools for task dependencies
 
@@ -374,6 +379,89 @@ This visualization would help with planning and prioritization, making it easier
 3. Update server.py, resources.py, and tools.py to integrate with learning.py
 4. Run tests again until all pass
 5. Run `pytest --cov=imap_mcp.learning` to verify coverage
+
+### 20. Set up Google Cloud Project for OAuth2
+
+**Task Name**: Set up Google Cloud Project for Gmail OAuth2
+
+**Status**: Completed - See TASKS_COMPLETED.md for details
+
+### 21. Implement Gmail OAuth2 Authentication Flow
+
+**Task Name**: Implement browser-based Gmail OAuth2 Authentication Flow
+
+**Test Specifications**:
+- Test authentication flow initialization
+- Test authorization URL generation
+- Test token exchange process
+- Test refresh token handling
+- Test integration with IMAP client authentication
+
+**Implementation Steps**:
+1. Create `oauth2_flow.py` with functions for:
+   - Generating authorization URLs
+   - Starting a local server for the redirect URI
+   - Exchanging authorization codes for tokens
+   - Handling token refresh
+2. Implement a browser-based authentication flow that:
+   - Opens the user's browser to the Google authorization URL
+   - Captures the authorization code via redirect
+   - Exchanges the code for access and refresh tokens
+3. Modify the IMAP client to use OAuth2 tokens for Gmail servers
+4. Create a command-line tool for initial authentication
+
+**TDD Process**:
+1. Create test_oauth2_flow.py with test cases
+2. Run to verify tests fail initially
+3. Implement OAuth2 flow functions
+4. Run tests again to verify implementation
+
+### 22. Implement Secure Token Storage
+
+**Task Name**: Implement secure storage for OAuth2 tokens
+
+**Test Specifications**:
+- Test token encryption/decryption
+- Test token persistence
+- Test token retrieval
+- Test automatic token refresh
+
+**Implementation Steps**:
+1. Create a secure storage class for OAuth2 tokens
+2. Implement encryption for sensitive token data
+3. Create functions to store and retrieve tokens
+4. Implement automatic token refresh when tokens expire
+5. Ensure tokens are stored per user account
+
+**TDD Process**:
+1. Create test_token_storage.py with test cases
+2. Run tests to verify they fail initially
+3. Implement token storage functionality
+4. Run tests again to verify implementation
+
+### 23. Test Basic IMAP Folder Listing with OAuth2
+
+**Task Name**: Implement and test basic IMAP folder listing with OAuth2
+
+**Test Specifications**:
+- Test IMAP connection with OAuth2 authentication
+- Test folder listing functionality
+- Test error handling for authentication failures
+
+**Implementation Steps**:
+1. Create a test script that:
+   - Authenticates with OAuth2
+   - Connects to Gmail's IMAP server
+   - Lists folders/mailboxes
+   - Handles errors appropriately
+2. Add documentation for the OAuth2 process
+3. Create integration tests for the entire flow
+
+**TDD Process**:
+1. Create test_gmail_integration.py
+2. Run tests to verify they fail initially
+3. Implement the integration functionality
+4. Run tests with valid credentials to verify implementation
 
 ### 11. Implement Email Processing Workflow - States
 
@@ -622,6 +710,39 @@ This visualization would help with planning and prioritization, making it easier
 2. Provide test credentials and run without the skip flag
 3. Fix issues found during real-world testing
 4. Ensure all previous tests still pass
+
+### 25. Fix Virtual Environment Duplication Issue
+
+**Task Name**: Investigate and fix package duplication in virtual environments
+
+**Problem Description**:
+The project currently experiences issues with duplicate package installations in the virtual environment, where some dependencies have duplicated folder names with ' 2' suffix (e.g., 'annotated_types-0.7.0 2.dist-info'). This causes errors when running the application with commands like `uv run`.
+
+**Test Specifications**:
+- Test virtual environment creation process
+- Test dependency installation with both pip and uv
+- Test package metadata integrity
+- Test for duplicate installations
+- Test application startup after environment setup
+
+**Implementation Steps**:
+```
+1. Create a script to analyze and report on duplicated packages in virtual environments
+2. Research causes of package duplication when using uv
+3. Implement fixes in package management workflow
+4. Create a clean installation script that prevents duplication
+5. Add verification steps to CI/CD pipeline
+```
+
+**Research Areas**:
+1. Investigate uv's package installation mechanics
+2. Research potential conflicts between pip and uv
+3. Examine any file copy operations during package installation
+4. Review naming and versioning handling in the virtual environment
+5. Check for race conditions in concurrent installations
+
+**Expected Outcome**:
+A reliable virtual environment setup process that doesn't create duplicate packages, allowing the application to run without metadata parsing errors.
 
 ## Bonus Tasks (After Core Implementation)
 

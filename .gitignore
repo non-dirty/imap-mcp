@@ -23,6 +23,7 @@ wheels/
 # Coverage
 .coverage
 .coverage.*
+coverage_data/
 htmlcov/
 .tox/
 .nox/
@@ -45,3 +46,6 @@ ENV/
 
 # Mac OS
 .DS_Store
+
+# OAuth2
+client_secret_*.json
