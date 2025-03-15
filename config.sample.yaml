@@ -1,0 +1,26 @@
+# Sample configuration for IMAP MCP with Gmail OAuth2 support
+# Copy this file to config.yaml and fill in your values
+
+# IMAP server configuration
+imap:
+  # For Gmail
+  host: imap.gmail.com
+  port: 993
+  username: your-email@gmail.com
+  use_ssl: true
+  
+  # Option 1: OAuth2 authentication (recommended for Gmail)
+  oauth2:
+    client_id: YOUR_CLIENT_ID
+    client_secret: YOUR_CLIENT_SECRET
+    refresh_token: YOUR_REFRESH_TOKEN
+    # access_token and token_expiry will be filled automatically
+  
+  # Option 2: App-specific password (if OAuth2 is not used)
+  # password: YOUR_APP_SPECIFIC_PASSWORD
+
+# Optional: restrict to specific folders
+# allowed_folders:
+#   - INBOX
+#   - "[Gmail]/Sent Mail"
+#   - "Important"

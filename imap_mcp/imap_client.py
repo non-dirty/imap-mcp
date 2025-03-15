@@ -11,6 +11,7 @@ from imapclient.response_types import SearchIds
 
 from imap_mcp.config import ImapConfig
 from imap_mcp.models import Email
+from imap_mcp.oauth2 import get_access_token, generate_oauth2_string
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,27 @@ class ImapClient:
                 port=self.config.port, 
                 ssl=self.config.use_ssl,
             )
-            self.client.login(self.config.username, self.config.password)
+            
+            # Use OAuth2 for Gmail if configured
+            if self.config.requires_oauth2:
+                logger.info(f"Using OAuth2 authentication for {self.config.host}")
+                
+                # Get fresh access token
+                if not self.config.oauth2:
+                    raise ValueError("OAuth2 configuration is required for Gmail")
+                
+                access_token, _ = get_access_token(self.config.oauth2)
+                
+                # Authenticate with XOAUTH2
+                # Use the oauth_login method which properly formats the XOAUTH2 string
+                self.client.oauth2_login(self.config.username, access_token)
+            else:
+                # Standard password authentication
+                if not self.config.password:
+                    raise ValueError("Password is required for authentication")
+                    
+                self.client.login(self.config.username, self.config.password)
+                
             self.connected = True
             logger.info(f"Connected to IMAP server {self.config.host}")
         except Exception as e:

@@ -7,8 +7,7 @@ import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Dict, Optional
 
-from mcp.server.fastmcp import FastMCP
-from mcp.server.types import Context
+from mcp.server.fastmcp import FastMCP, Context
 
 from imap_mcp.config import ServerConfig, load_config
 from imap_mcp.imap_client import ImapClient
@@ -33,8 +32,13 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[Dict]:
     Yields:
         Context dictionary containing IMAP client
     """
-    # Setup IMAP client
-    config = server.config
+    # Access the config that was set in create_server
+    # The config is stored in the server's state
+    config = getattr(server, "_config", None)
+    if not config:
+        # This is a fallback in case we can't find the config
+        config = load_config()
+    
     if not isinstance(config, ServerConfig):
         raise TypeError("Invalid server configuration")
     
@@ -76,8 +80,10 @@ def create_server(config_path: Optional[str] = None, debug: bool = False) -> Fas
         description="IMAP Model Context Protocol server for email processing",
         version="0.1.0",
         lifespan=server_lifespan,
-        config=config,
     )
+    
+    # Store config for access in the lifespan
+    server._config = config
     
     # Create IMAP client for setup (will be recreated in lifespan)
     imap_client = ImapClient(config.imap, config.allowed_folders)
@@ -134,14 +140,9 @@ def main() -> None:
     
     server = create_server(args.config, args.debug)
     
-    if args.dev:
-        # Development mode runs the server with the inspector
-        logger.info("Starting server in development mode...")
-        server.run_dev()
-    else:
-        # Production mode
-        logger.info("Starting server...")
-        server.run()
+    # Start the server
+    logger.info("Starting server{}...".format(" in development mode" if args.dev else ""))
+    server.run()
     
     
 if __name__ == "__main__":

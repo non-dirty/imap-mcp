@@ -5,7 +5,7 @@ import logging
 from typing import Dict, List, Optional, Union
 
 from mcp.server.fastmcp import FastMCP
-from mcp.server.types import Context
+from mcp.server.fastmcp import Context
 
 from imap_mcp.imap_client import ImapClient
 from imap_mcp.resources import get_client_from_context
@@ -114,8 +114,8 @@ def register_tools(mcp: FastMCP, imap_client: ImapClient) -> None:
     async def flag_email(
         folder: str,
         uid: int,
-        flag: bool = True,
         ctx: Context,
+        flag: bool = True,
     ) -> str:
         """Flag or unflag email.
         
@@ -173,10 +173,10 @@ def register_tools(mcp: FastMCP, imap_client: ImapClient) -> None:
     @mcp.tool()
     async def search_emails(
         query: str,
+        ctx: Context,
         folder: Optional[str] = None,
         criteria: str = "text",
         limit: int = 10,
-        ctx: Context,
     ) -> str:
         """Search for emails.
         
@@ -258,9 +258,9 @@ def register_tools(mcp: FastMCP, imap_client: ImapClient) -> None:
         folder: str,
         uid: int,
         action: str,
+        ctx: Context,
         notes: Optional[str] = None,
         target_folder: Optional[str] = None,
-        ctx: Context,
     ) -> str:
         """Process an email with specified action.
         

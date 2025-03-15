@@ -1,0 +1,118 @@
+"""Tests for MCP tools implementation."""
+
+import json
+import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from mcp.server.fastmcp import FastMCP
+from mcp.server.types import Context
+
+from imap_mcp.imap_client import ImapClient
+from imap_mcp.models import Email, EmailAddress
+from imap_mcp.tools import register_tools
+
+
+class TestTools:
+    """Test class for MCP tools."""
+
+    @pytest.fixture
+    def mock_client(self):
+        """Create a mock IMAP client."""
+        client = MagicMock(spec=ImapClient)
+        return client
+
+    @pytest.fixture
+    def mock_mcp(self):
+        """Create a mock MCP server."""
+        mcp = MagicMock(spec=FastMCP)
+        # Configure the tool decorator to pass through the decorated function
+        mcp.tool = lambda: lambda f: f
+        return mcp
+
+    @pytest.fixture
+    def mock_context(self, mock_client):
+        """Create a mock MCP context with client."""
+        context = MagicMock(spec=Context)
+        context.get.return_value = mock_client
+        return context
+
+    @pytest.fixture
+    def register_mock_tools(self, mock_mcp, mock_client):
+        """Register tools with mock MCP and client."""
+        # Register tools with mock MCP and client
+        register_tools(mock_mcp, mock_client)
+        # Extract the registered tools (they should be accessible through mock_mcp.register.calls)
+        registered_tools = {}
+        for call in mock_mcp.tool.mock_calls:
+            if len(call.args) > 0 and callable(call.args[0]):
+                registered_tools[call.args[0].__name__] = call.args[0]
+        return registered_tools
+
+    async def test_move_email(self, mock_client, mock_context):
+        """Test moving an email from one folder to another."""
+        # Configure the mock client
+        mock_client.move_email.return_value = True
+
+        # Register tools
+        mcp = MagicMock(spec=FastMCP)
+        mcp.tool = lambda: lambda f: f
+        register_tools(mcp, mock_client)
+
+        # Get the move_email function
+        move_email = None
+        for name, mock_call in mcp.tool.mock_calls:
+            if hasattr(mock_call, "args") and len(mock_call.args) > 0:
+                if callable(mock_call.args[0]) and mock_call.args[0].__name__ == "move_email":
+                    move_email = mock_call.args[0]
+                    break
+
+        assert move_email is not None, "move_email tool was not registered"
+
+        # Call the move_email function
+        result = await move_email("inbox", 123, "archive", mock_context)
+
+        # Check the client was called correctly
+        mock_client.move_email.assert_called_once_with(123, "inbox", "archive")
+        
+        # Check the result
+        assert "Email moved" in result
+
+    async def test_mark_as_read(self, mock_client, mock_context):
+        """Test marking an email as read."""
+        # Test will be implemented here
+        pass
+
+    async def test_mark_as_unread(self, mock_client, mock_context):
+        """Test marking an email as unread."""
+        # Test will be implemented here
+        pass
+
+    async def test_flag_email(self, mock_client, mock_context):
+        """Test flagging an email."""
+        # Test will be implemented here
+        pass
+
+    async def test_delete_email(self, mock_client, mock_context):
+        """Test deleting an email."""
+        # Test will be implemented here
+        pass
+
+    async def test_search_emails(self, mock_client, mock_context):
+        """Test searching for emails."""
+        # Test will be implemented here
+        pass
+
+    async def test_process_email(self, mock_client, mock_context):
+        """Test processing an email with multiple actions."""
+        # Test will be implemented here
+        pass
+
+    async def test_tool_error_handling(self, mock_client, mock_context):
+        """Test error handling in tools."""
+        # Test will be implemented here
+        pass
+
+    async def test_tool_parameter_validation(self, mock_client, mock_context):
+        """Test parameter validation in tools."""
+        # Test will be implemented here
+        pass

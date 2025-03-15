@@ -37,21 +37,71 @@ def register_resources(mcp: FastMCP, imap_client: ImapClient) -> None:
         mcp: MCP server
         imap_client: IMAP client
     """
+    # Define a wrapper for the folders resource
+    async def get_folders_impl(ctx: Context) -> str:
+        """Implementation for listing folders."""
+        client = get_client_from_context(ctx)
+        folders = client.list_folders()
+        return json.dumps(folders, indent=2)
+    
     # List folders resource
     @mcp.resource("email://folders")
-    async def get_folders(ctx: Context) -> str:
+    async def get_folders() -> str:
         """List available email folders.
         
         Returns:
             JSON-formatted list of folders
         """
+        # Get context from the global context manager
+        ctx = Context.get_current()
+        return await get_folders_impl(ctx)
+        """List available email folders.
+        
+        Returns:
+            JSON-formatted list of folders
+        """
+    
+    # Define a wrapper for the list emails resource
+    async def list_emails_impl(ctx: Context, folder: str) -> str:
+        """Implementation for listing emails."""
         client = get_client_from_context(ctx)
-        folders = client.list_folders()
-        return json.dumps(folders, indent=2)
+        
+        try:
+            # Search for all emails in folder
+            uids = client.search("ALL", folder=folder)
+            
+            if not uids:
+                return json.dumps([])
+            
+            # Fetch emails with specified UIDs
+            emails = client.fetch_emails(uids, folder=folder)
+            
+            # Convert to list of dictionaries for JSON output
+            results = []
+            for uid, email in emails.items():
+                if not email:
+                    continue
+                
+                results.append({
+                    "uid": uid,
+                    "folder": folder,
+                    "from": str(email.from_),
+                    "to": [str(to) for to in email.to],
+                    "subject": email.subject,
+                    "date": email.date.isoformat() if email.date else None,
+                    "snippet": email.get_snippet(100),
+                    "flags": email.flags,
+                    "has_attachments": bool(email.attachments)
+                })
+            
+            return json.dumps(results, indent=2)
+        except Exception as e:
+            logging.error(f"Error listing emails: {e}")
+            return f"Error: {e}"
     
     # List email summaries in a folder
     @mcp.resource("email://{folder}/list")
-    async def list_emails(folder: str, ctx: Context) -> str:
+    async def list_emails(folder: str) -> str:
         """List emails in a folder.
         
         Args:
@@ -60,6 +110,8 @@ def register_resources(mcp: FastMCP, imap_client: ImapClient) -> None:
         Returns:
             JSON-formatted list of email summaries
         """
+        # Get context from the global context manager
+        ctx = Context.get_current()
         client = get_client_from_context(ctx)
         
         # Search for all emails in the folder
@@ -94,7 +146,7 @@ def register_resources(mcp: FastMCP, imap_client: ImapClient) -> None:
     
     # Search emails across folders
     @mcp.resource("email://search/{query}")
-    async def search_emails(query: str, ctx: Context) -> str:
+    async def search_emails(query: str) -> str:
         """Search for emails across folders.
         
         Args:
@@ -103,6 +155,8 @@ def register_resources(mcp: FastMCP, imap_client: ImapClient) -> None:
         Returns:
             JSON-formatted list of email summaries
         """
+        # Get context from the global context manager
+        ctx = Context.get_current()
         client = get_client_from_context(ctx)
         
         # Get all folders
@@ -151,7 +205,7 @@ def register_resources(mcp: FastMCP, imap_client: ImapClient) -> None:
     
     # Get a specific email by UID
     @mcp.resource("email://{folder}/{uid}")
-    async def get_email(folder: str, uid: str, ctx: Context) -> str:
+    async def get_email(folder: str, uid: str) -> str:
         """Get a specific email.
         
         Args:
@@ -161,6 +215,8 @@ def register_resources(mcp: FastMCP, imap_client: ImapClient) -> None:
         Returns:
             Email content in text format
         """
+        # Get context from the global context manager
+        ctx = Context.get_current()
         client = get_client_from_context(ctx)
         
         try:

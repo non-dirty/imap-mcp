@@ -49,6 +49,28 @@ ENV/
 
 # OAuth2
 client_secret_*.json
+token_*.json
+credentials.json
+*.credentials.json
 
 # Configuration
 config.yaml
+
+# Resources 
+# Exclude all files in resources by default
+resources/
+
+# But include specific markdown files for collaboration
+!resources/*.md
+!resources/diagrams/
+
+# Exclude any sensitive files that might be in resources even if they match above patterns
+resources/*secret*
+resources/*token*
+resources/*key*
+resources/*credential*
+resources/*password*
+resources/*auth*
+
+# Secret Design Ideas
+# reference/
