@@ -98,7 +98,7 @@ pytest -v
 | -        | 2      | completed   | Implement Config Module Tests                    |
 | -        | 3      | completed   | Implement MCP Resources Tests                    |
 | -        | 4      | completed   | Implement MCP Tools Tests                        |
-| 5        | 5      | prioritized | Implement Server Tests                           |
+| 5        | 5      | started     | Implement Server Tests                           |
 | 6        | 6      | prioritized | Add Email Data Models for Learning Layer         |
 | 7        | 7      | prioritized | Implement Basic Action Tracking                  |
 | 8        | 8      | prioritized | Implement Feature Extraction                     |
