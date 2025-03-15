@@ -296,3 +296,58 @@ This test infrastructure provides a solid foundation for implementing the remain
    - Properly manages token lifecycle
 
 5. Updated the IMAP client to seamlessly work with both traditional password authentication and OAuth2 based on the email provider
+
+## 5. Implement Server Tests
+
+**Task Name**: Implement comprehensive server module tests
+
+**Test Specifications**:
+- Test server initialization and configuration
+- Test lifecycle management (startup and shutdown)
+- Test CLI argument parsing
+- Test error handling
+
+**Implementation Steps**:
+```
+1. Created test_server.py with test cases covering:
+   - Server initialization and configuration loading
+   - Lifecycle management (lifespan context manager)
+   - CLI argument parsing with different options
+   - Error handling for invalid configurations
+   - Tool registration and functionality
+```
+
+**Accomplishments**:
+
+1. Implemented a comprehensive test suite for the server module using pytest and mock objects:
+   - Created tests for `create_server` function with various configuration options
+   - Implemented async tests for the `server_lifespan` context manager
+   - Added tests for config fallback and error handling
+   - Created tests for command-line argument parsing
+
+2. Achieved 89% code coverage for the server module:
+   - All major code paths covered
+   - Remaining uncovered paths are primarily formatting code and edge cases
+
+3. Addressed testing challenges:
+   - Used mock objects to simulate IMAP client connections
+   - Implemented proper async testing with AsyncExitStack
+   - Developed approaches to test inner function tools without direct access
+
+4. Improved project structure:
+   - Ensured tests follow the same structure as the implementation
+   - Used pytest fixtures effectively
+   - Added proper docstrings to all test functions
+
+**Code Coverage**:
+- Improved overall project coverage from 53% to 58%
+- Server module coverage achieved 89%
+- Remaining untested code includes only some formatting code and specific edge cases
+
+**TDD Process**:
+1. Started with failing tests that verified the expected server behavior
+2. Adjusted test approaches to account for FastMCP implementation details
+3. Implemented tests for error handling and edge cases
+4. Achieved near-complete coverage of the server module
+
+This task completes the foundational testing of the IMAP MCP server's core components, providing a solid base for implementing additional features.
