@@ -227,6 +227,13 @@ class TestLoadConfig:
 
     def test_load_from_default_locations(self, monkeypatch, tmp_path):
         """Test loading configuration from default locations."""
+        # Clear any environment variables that might affect the test
+        for env_var in [
+            "IMAP_HOST", "IMAP_PORT", "IMAP_USERNAME", "IMAP_PASSWORD",
+            "IMAP_USE_SSL", "IMAP_ALLOWED_FOLDERS"
+        ]:
+            monkeypatch.delenv(env_var, raising=False)
+            
         config_data = {
             "imap": {
                 "host": "imap.example.com",
@@ -251,6 +258,14 @@ class TestLoadConfig:
             return original_expanduser(self)
         
         monkeypatch.setattr(Path, "expanduser", mock_expanduser)
+        
+        # Monkeypatch to ensure no other config file is found
+        def mock_exists(path):
+            if path == temp_file:
+                return True
+            return False
+        
+        monkeypatch.setattr(Path, "exists", mock_exists)
         
         # Load config without specifying path (should find default)
         config = load_config()
