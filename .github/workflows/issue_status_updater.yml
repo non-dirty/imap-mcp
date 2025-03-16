@@ -2,9 +2,9 @@ name: Issue Status Updater
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, 'feature/**', 'bugfix/**' ]
   pull_request:
-    types: [opened, closed, synchronize]
+    types: [opened, closed, reopened, synchronize]
   workflow_dispatch:
     inputs:
       issue_number:
@@ -15,6 +15,10 @@ on:
 jobs:
   update-issue-status:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     
     steps:
       - name: Checkout code
@@ -30,15 +34,102 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install uv
-          uv pip install -r requirements.txt
-          uv pip install pytest pytest-cov
+          pip install -e ".[dev]"
+          pip install pytest pytest-cov
       
-      - name: Run issue status updater
+      - name: Determine context
+        id: context
         run: |
+          echo "EVENT_NAME=${{ github.event_name }}" >> $GITHUB_ENV
+          echo "PR_ACTION=${{ github.event.action }}" >> $GITHUB_ENV
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+            echo "PR_MERGED=${{ github.event.pull_request.merged }}" >> $GITHUB_ENV
+            echo "PR_STATE=${{ github.event.pull_request.state }}" >> $GITHUB_ENV
+            echo "PR_TITLE=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
+            echo "PR_BODY=${{ github.event.pull_request.body }}" >> $GITHUB_ENV
+          fi
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "COMMIT_MESSAGE=$(git log -1 --pretty=%B)" >> $GITHUB_ENV
+          fi
+      
+      - name: Extract issue references from context
+        id: extract_issues
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            ISSUES=$(echo "$COMMIT_MESSAGE" | grep -o '#[0-9]\+' | sed 's/#//' | sort -u)
+            echo "ISSUES=$ISSUES" >> $GITHUB_ENV
+          fi
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            ISSUES=$(echo "$PR_TITLE $PR_BODY" | grep -o '#[0-9]\+' | sed 's/#//' | sort -u)
+            echo "ISSUES=$ISSUES" >> $GITHUB_ENV
+          fi
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "ISSUES=${{ github.event.inputs.issue_number }}" >> $GITHUB_ENV
+          fi
+          echo "Found issue references: $ISSUES"
+      
+      - name: Run issue status updater for push
+        if: github.event_name == 'push'
+        run: |
+          for ISSUE in $ISSUES; do
+            echo "Updating issue #$ISSUE based on commit"
+            python scripts/issue_status_updater.py \
+              --owner ${{ github.repository_owner }} \
+              --repo ${{ github.event.repository.name }} \
+              --issue $ISSUE \
+              --update-from-commit "$COMMIT_MESSAGE"
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run issue status updater for PR opened/reopened
+        if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'reopened')
+        run: |
+          for ISSUE in $ISSUES; do
+            echo "Updating issue #$ISSUE to in-review status"
+            python scripts/issue_status_updater.py \
+              --owner ${{ github.repository_owner }} \
+              --repo ${{ github.event.repository.name }} \
+              --issue $ISSUE \
+              --update-from-pr $PR_NUMBER \
+              --pr-action "opened"
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run issue status updater for PR closed
+        if: github.event_name == 'pull_request' && github.event.action == 'closed'
+        run: |
+          for ISSUE in $ISSUES; do
+            if [ "$PR_MERGED" = "true" ]; then
+              echo "Updating issue #$ISSUE to completed status (PR merged)"
+              python scripts/issue_status_updater.py \
+                --owner ${{ github.repository_owner }} \
+                --repo ${{ github.event.repository.name }} \
+                --issue $ISSUE \
+                --update-from-pr $PR_NUMBER \
+                --pr-action "merged"
+            else
+              echo "Reverting issue #$ISSUE to previous status (PR closed without merging)"
+              python scripts/issue_status_updater.py \
+                --owner ${{ github.repository_owner }} \
+                --repo ${{ github.event.repository.name }} \
+                --issue $ISSUE \
+                --update-from-pr $PR_NUMBER \
+                --pr-action "closed"
+            fi
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run issue status updater for manual trigger
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Manually updating issue #${{ github.event.inputs.issue_number }}"
           python scripts/issue_status_updater.py \
             --owner ${{ github.repository_owner }} \
             --repo ${{ github.event.repository.name }} \
-            ${{ github.event.inputs.issue_number && format('--issue {0}', github.event.inputs.issue_number) || '' }}
+            --issue ${{ github.event.inputs.issue_number }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
