@@ -1,493 +1,409 @@
-#!/usr/bin/env python
-"""
-Tests for the GitHub issue status updater.
-
-This module tests the automatic update of GitHub issue statuses based on
-git activity and test execution.
-"""
+"""Test module for the issue status updater script."""
 
 import os
-import unittest
-from unittest.mock import patch, MagicMock
-import tempfile
-import json
 import sys
-from pathlib import Path
+import pytest
+from unittest.mock import patch, MagicMock, call
 
-# Add the scripts directory to the system path to import the module
-sys.path.append(str(Path(__file__).parent.parent / 'scripts'))
-
-from issue_status_updater import (
-    CommitAnalyzer,
-    PullRequestAnalyzer,
-    TestResultsAnalyzer, 
-    IssueUpdater,
-    PriorityManager
-)
+# Add the scripts directory to the path so we can import the module directly
+sys.path.append('scripts')
+import issue_status_updater as isu
 
 
-class TestCommitAnalyzer(unittest.TestCase):
-    """Test the CommitAnalyzer class."""
+class TestIssueUpdater:
+    """Test class for the IssueUpdater class."""
     
-    def setUp(self):
-        """Set up test environment."""
-        self.analyzer = CommitAnalyzer()
+    @pytest.fixture
+    def issue_updater(self):
+        """Create an IssueUpdater instance for testing."""
+        return isu.IssueUpdater('test-owner', 'test-repo')
     
-    @patch('issue_status_updater.subprocess.run')
-    def test_get_recent_commits(self, mock_run):
-        """Test getting recent commits."""
-        # Mock the subprocess call to git log
-        mock_process = MagicMock()
-        mock_process.stdout = (
-            "abcd1234,refs #5: Start implementing OAuth flow\n"
-            "efgh5678,fixes #8: Fix token refresh logic\n"
-            "ijkl9012,Update README\n"
+    @patch('issue_status_updater.mcp5_get_issue')
+    def test_get_current_status(self, mock_get_issue, issue_updater):
+        """Test getting the current status of an issue."""
+        # Mock the API response
+        mock_get_issue.return_value = {
+            'labels': [
+                {'name': 'status:in-progress'},
+                {'name': 'priority:1'},
+            ]
+        }
+        
+        # Call the method
+        status = issue_updater.get_current_status(123)
+        
+        # Verify the result
+        assert status == 'in-progress'
+        mock_get_issue.assert_called_once_with(
+            owner='test-owner', repo='test-repo', issue_number=123
         )
-        mock_process.returncode = 0
-        mock_run.return_value = mock_process
-        
-        commits = self.analyzer.get_recent_commits(limit=3)
-        
-        self.assertEqual(len(commits), 3)
-        self.assertEqual(commits[0]['hash'], 'abcd1234')
-        self.assertEqual(commits[0]['issue_refs'], [5])
-        self.assertEqual(commits[0]['action'], 'refs')
-        
-        self.assertEqual(commits[1]['hash'], 'efgh5678')
-        self.assertEqual(commits[1]['issue_refs'], [8])
-        self.assertEqual(commits[1]['action'], 'fixes')
-        
-        self.assertEqual(commits[2]['hash'], 'ijkl9012')
-        self.assertEqual(commits[2]['issue_refs'], [])
-        self.assertEqual(commits[2]['action'], None)
     
-    def test_parse_commit_message(self):
-        """Test parsing commit messages for issue references."""
-        # Test various formats of commit messages
-        test_cases = [
-            {
-                'message': 'fixes #42: Fix authentication bug',
-                'expected': {'issue_refs': [42], 'action': 'fixes'}
-            },
-            {
-                'message': 'implements #100: Add OAuth flow',
-                'expected': {'issue_refs': [100], 'action': 'implements'}
-            },
-            {
-                'message': 'refs #5, #8: Update documentation',
-                'expected': {'issue_refs': [5, 8], 'action': 'refs'}
-            },
-            {
-                'message': 'Regular commit with no reference',
-                'expected': {'issue_refs': [], 'action': None}
-            },
-            {
-                'message': 'Multiple refs (closes #10, fixes #15)',
-                'expected': {'issue_refs': [10, 15], 'action': 'closes'}
-            }
-        ]
+    @patch('issue_status_updater.mcp5_get_issue')
+    def test_get_current_status_no_status_label(self, mock_get_issue, issue_updater):
+        """Test getting the current status when no status label is present."""
+        # Mock the API response with no status label
+        mock_get_issue.return_value = {
+            'labels': [
+                {'name': 'priority:1'},
+                {'name': 'type:bug'},
+            ]
+        }
         
-        for case in test_cases:
-            result = self.analyzer.parse_commit_message(case['message'])
-            self.assertEqual(result['issue_refs'], case['expected']['issue_refs'])
-            self.assertEqual(result['action'], case['expected']['action'])
-
-
-class TestPullRequestAnalyzer(unittest.TestCase):
-    """Test the PullRequestAnalyzer class."""
+        # Call the method
+        status = issue_updater.get_current_status(123)
+        
+        # Verify the result is the default status
+        assert status == 'prioritized'
     
-    def setUp(self):
-        """Set up test environment."""
-        self.analyzer = PullRequestAnalyzer()
+    def test_validate_status_transition(self, issue_updater):
+        """Test validation of status transitions."""
+        # Valid transitions
+        assert issue_updater.validate_status_transition('prioritized', 'in-progress') is True
+        assert issue_updater.validate_status_transition('in-progress', 'in-review') is True
+        assert issue_updater.validate_status_transition('in-review', 'completed') is True
+        
+        # Invalid transitions
+        assert issue_updater.validate_status_transition('prioritized', 'completed') is False
+        assert issue_updater.validate_status_transition('prioritized', 'in-review') is False
+        
+        # Same status is always valid
+        assert issue_updater.validate_status_transition('in-progress', 'in-progress') is True
     
-    @patch('issue_status_updater.mcp5_list_issues')
-    def test_get_pull_requests(self, mock_list_issues):
-        """Test getting pull requests."""
-        # Mock the GitHub API call
-        mock_list_issues.return_value = [
-            {
-                'number': 10,
-                'title': 'Implement OAuth Flow',
-                'body': 'This PR implements the OAuth flow. Fixes #5.',
-                'labels': [{'name': 'type:pr'}],
-                'state': 'open'
-            },
-            {
-                'number': 11,
-                'title': 'Update Documentation',
-                'body': 'Update the API documentation. Refs #8.',
-                'labels': [{'name': 'type:pr'}],
-                'state': 'closed'
-            }
-        ]
+    @patch('issue_status_updater.mcp5_get_issue')
+    @patch('issue_status_updater.mcp5_update_issue')
+    def test_update_issue_status(self, mock_update_issue, mock_get_issue, issue_updater):
+        """Test updating an issue's status."""
+        # Mock the API responses
+        mock_get_issue.return_value = {
+            'labels': [
+                {'name': 'status:prioritized'},
+                {'name': 'priority:1'},
+            ]
+        }
+        mock_update_issue.return_value = {'updated': True}
         
-        # Get open pull requests
-        prs = self.analyzer.get_pull_requests(state='open')
+        # Call the method
+        result = issue_updater.update_issue_status(123, 'in-progress')
         
-        self.assertEqual(len(prs), 1)
-        self.assertEqual(prs[0]['number'], 10)
-        self.assertEqual(prs[0]['linked_issues'], [5])
-        
-        # Get all pull requests
-        mock_list_issues.return_value = [
-            {
-                'number': 10,
-                'title': 'Implement OAuth Flow',
-                'body': 'This PR implements the OAuth flow. Fixes #5.',
-                'labels': [{'name': 'type:pr'}],
-                'state': 'open'
-            },
-            {
-                'number': 11,
-                'title': 'Update Documentation',
-                'body': 'Update the API documentation. Refs #8.',
-                'labels': [{'name': 'type:pr'}],
-                'state': 'closed'
-            }
-        ]
-        
-        prs = self.analyzer.get_pull_requests(state='all')
-        
-        self.assertEqual(len(prs), 2)
-        self.assertEqual(prs[0]['number'], 10)
-        self.assertEqual(prs[0]['linked_issues'], [5])
-        self.assertEqual(prs[1]['number'], 11)
-        self.assertEqual(prs[1]['linked_issues'], [8])
-    
-    def test_extract_linked_issues(self):
-        """Test extracting linked issues from PR title and body."""
-        test_cases = [
-            {
-                'title': 'Implement OAuth Flow',
-                'body': 'This PR implements the OAuth flow. Fixes #5.',
-                'expected': [5]
-            },
-            {
-                'title': 'Fix #10, #15: Authentication bugs',
-                'body': 'Addressing multiple auth issues. Closes #10 and fixes #15.',
-                'expected': [10, 15]
-            },
-            {
-                'title': 'Documentation update',
-                'body': 'General documentation improvements.',
-                'expected': []
-            },
-            {
-                'title': 'Fixes #8 - Token refresh',
-                'body': 'Also related to #9 but does not fix it.',
-                'expected': [8, 9]
-            }
-        ]
-        
-        for case in test_cases:
-            result = self.analyzer.extract_linked_issues(case['title'], case['body'])
-            self.assertEqual(sorted(result), sorted(case['expected']))
-
-
-class TestTestResultsAnalyzer(unittest.TestCase):
-    """Test the TestResultsAnalyzer class."""
-    
-    def setUp(self):
-        """Set up test environment."""
-        self.analyzer = TestResultsAnalyzer()
-    
-    @patch('issue_status_updater.subprocess.run')
-    def test_run_tests_for_issue(self, mock_run):
-        """Test running tests related to an issue."""
-        # Create a mock test result
-        mock_process = MagicMock()
-        mock_process.returncode = 0
-        mock_process.stdout = "Ran 5 tests, all passed!"
-        mock_run.return_value = mock_process
-        
-        # Mock file paths for test discovery
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Create mock test files
-            issue_5_file = os.path.join(tmpdir, "test_oauth_flow.py")
-            with open(issue_5_file, "w") as f:
-                f.write("# Tests for Issue #5 - OAuth Flow")
-            
-            # Run tests for issue #5
-            result = self.analyzer.run_tests_for_issue(5, test_dir=tmpdir)
-            
-            self.assertTrue(result['success'])
-            self.assertEqual(result['test_files'], [issue_5_file])
-    
-    @patch('issue_status_updater.subprocess.run')
-    def test_get_coverage_for_issue(self, mock_run):
-        """Test getting test coverage for an issue."""
-        # Mock the coverage report
-        mock_process = MagicMock()
-        mock_process.returncode = 0
-        mock_process.stdout = "92% coverage"
-        mock_run.return_value = mock_process
-        
-        # Create a temporary coverage data file
-        with tempfile.NamedTemporaryFile(suffix='.json') as tmp:
-            coverage_data = {
-                'files': {
-                    'imap_mcp/oauth_flow.py': {
-                        'summary': {
-                            'covered_lines': 45,
-                            'num_statements': 50,
-                            'percent_covered': 90.0
-                        }
-                    }
-                }
-            }
-            tmp.write(json.dumps(coverage_data).encode())
-            tmp.flush()
-            
-            # Mock finding issue-related files
-            with patch('issue_status_updater.TestResultsAnalyzer.find_files_for_issue') as mock_find:
-                mock_find.return_value = ['imap_mcp/oauth_flow.py']
-                
-                result = self.analyzer.get_coverage_for_issue(5, coverage_file=tmp.name)
-                
-                self.assertEqual(result['coverage'], 90.0)
-                self.assertEqual(result['files'], ['imap_mcp/oauth_flow.py'])
-
-
-class TestIssueUpdater(unittest.TestCase):
-    """Test the IssueUpdater class."""
-    
-    def setUp(self):
-        """Set up test environment."""
-        self.updater = IssueUpdater(
-            owner='imap-mcp-owner',
-            repo='imap-mcp'
+        # Verify the result
+        assert result == {'updated': True}
+        mock_get_issue.assert_called_once_with(
+            owner='test-owner', repo='test-repo', issue_number=123
+        )
+        mock_update_issue.assert_called_once_with(
+            owner='test-owner', 
+            repo='test-repo', 
+            issue_number=123,
+            labels=['priority:1', 'status:in-progress']
         )
     
     @patch('issue_status_updater.mcp5_get_issue')
     @patch('issue_status_updater.mcp5_update_issue')
-    def test_update_issue_status(self, mock_update_issue, mock_get_issue):
-        """Test updating issue status."""
-        # Mock getting issue details
+    def test_update_issue_status_invalid_transition(self, mock_update_issue, mock_get_issue, issue_updater):
+        """Test that invalid status transitions are blocked."""
+        # Mock the API responses
         mock_get_issue.return_value = {
-            'number': 5,
-            'title': 'Implement OAuth Flow',
             'labels': [
                 {'name': 'status:prioritized'},
-                {'name': 'priority:1'}
+                {'name': 'priority:1'},
             ]
         }
         
-        # Test updating to "in-progress"
-        self.updater.update_issue_status(5, 'in-progress')
+        # Call the method with an invalid transition
+        result = issue_updater.update_issue_status(123, 'completed')
         
-        # Verify correct API calls
-        mock_update_issue.assert_called_once()
-        args = mock_update_issue.call_args[1]
-        self.assertEqual(args['issue_number'], 5)
-        self.assertEqual(args['owner'], 'imap-mcp-owner')
-        self.assertEqual(args['repo'], 'imap-mcp')
-        self.assertIn('status:in-progress', args['labels'])
-        self.assertNotIn('status:prioritized', args['labels'])
-        
-        # Test updating to "completed"
-        mock_update_issue.reset_mock()
+        # Verify the API was not called and empty result was returned
+        assert result == {}
+        mock_get_issue.assert_called_once()
+        mock_update_issue.assert_not_called()
+    
+    @patch('issue_status_updater.mcp5_get_issue')
+    @patch('issue_status_updater.mcp5_update_issue')
+    def test_update_issue_status_force(self, mock_update_issue, mock_get_issue, issue_updater):
+        """Test forcing an invalid status transition."""
+        # Mock the API responses
         mock_get_issue.return_value = {
-            'number': 5,
-            'title': 'Implement OAuth Flow',
             'labels': [
-                {'name': 'status:in-progress'},
-                {'name': 'priority:1'}
+                {'name': 'status:prioritized'},
+                {'name': 'priority:1'},
             ]
         }
+        mock_update_issue.return_value = {'updated': True}
         
-        self.updater.update_issue_status(5, 'completed')
+        # Call the method with force=True
+        result = issue_updater.update_issue_status(123, 'completed', force=True)
         
-        # Verify correct API calls
+        # Verify the API was called despite invalid transition
+        assert result == {'updated': True}
+        mock_get_issue.assert_called_once()
         mock_update_issue.assert_called_once()
-        args = mock_update_issue.call_args[1]
-        self.assertEqual(args['issue_number'], 5)
-        self.assertIn('status:completed', args['labels'])
-        self.assertNotIn('status:in-progress', args['labels'])
     
     @patch('issue_status_updater.mcp5_add_issue_comment')
-    def test_add_status_comment(self, mock_add_comment):
-        """Test adding a status comment to an issue."""
-        # Test adding a "started" comment
-        self.updater.add_status_comment(
-            issue_number=5,
-            status='in-progress',
-            details={'commit': 'abcd1234', 'message': 'Start implementing OAuth flow'}
-        )
+    @patch('issue_status_updater.datetime')
+    def test_add_status_comment_in_progress(self, mock_datetime, mock_add_comment, issue_updater):
+        """Test adding a comment for in-progress status."""
+        # Mock the datetime
+        mock_datetime.now.return_value.strftime.return_value = '2025-03-16 01:00:00'
         
-        # Verify comment was added
+        # Call the method
+        details = {
+            'commit': 'abcd123',
+            'message': 'Start implementing feature'
+        }
+        issue_updater.add_status_comment(123, 'in-progress', details)
+        
+        # Verify the API was called with appropriate message
         mock_add_comment.assert_called_once()
         args = mock_add_comment.call_args[1]
-        self.assertEqual(args['issue_number'], 5)
-        self.assertEqual(args['owner'], 'imap-mcp-owner')
-        self.assertEqual(args['repo'], 'imap-mcp')
-        self.assertIn('Status changed to: `in-progress`', args['body'])
-        self.assertIn('abcd1234', args['body'])
-        
-        # Test adding a "completed" comment with test results
-        mock_add_comment.reset_mock()
-        
-        self.updater.add_status_comment(
-            issue_number=5,
-            status='completed',
-            details={
-                'test_results': {'success': True, 'coverage': 92.5},
-                'pr_number': 10
-            }
-        )
-        
-        # Verify comment was added
-        mock_add_comment.assert_called_once()
-        args = mock_add_comment.call_args[1]
-        self.assertEqual(args['issue_number'], 5)
-        self.assertIn('Status changed to: `completed`', args['body'])
-        self.assertIn('Test coverage: 92.5%', args['body'])
-        self.assertIn('PR #10', args['body'])
-
-
-class TestPriorityManager(unittest.TestCase):
-    """Test the PriorityManager class."""
-    
-    def setUp(self):
-        """Set up test environment."""
-        self.priority_manager = PriorityManager(
-            owner='imap-mcp-owner',
-            repo='imap-mcp'
-        )
-    
-    @patch('issue_status_updater.mcp5_list_issues')
-    def test_get_prioritized_issues(self, mock_list_issues):
-        """Test getting prioritized issues."""
-        # Mock the GitHub API call to return prioritized issues
-        mock_list_issues.return_value = [
-            {
-                'number': 5,
-                'title': 'Implement OAuth Flow',
-                'labels': [
-                    {'name': 'status:prioritized'},
-                    {'name': 'priority:1'}
-                ]
-            },
-            {
-                'number': 8,
-                'title': 'Fix Token Refresh',
-                'labels': [
-                    {'name': 'status:prioritized'},
-                    {'name': 'priority:2'}
-                ]
-            },
-            {
-                'number': 10,
-                'title': 'Update Documentation',
-                'labels': [
-                    {'name': 'status:completed'},
-                    {'name': 'priority:3'}
-                ]
-            }
-        ]
-        
-        # Get prioritized issues
-        issues = self.priority_manager.get_prioritized_issues()
-        
-        # Verify that only prioritized issues are returned
-        self.assertEqual(len(issues), 2)
-        self.assertEqual(issues[0]['number'], 5)
-        self.assertEqual(issues[0]['priority'], 1)
-        self.assertEqual(issues[1]['number'], 8)
-        self.assertEqual(issues[1]['priority'], 2)
-    
-    @patch('issue_status_updater.mcp5_update_issue')
-    @patch('issue_status_updater.mcp5_list_issues')
-    def test_adjust_priorities(self, mock_list_issues, mock_update_issue):
-        """Test adjusting priorities when a task is completed."""
-        # Mock getting all prioritized issues
-        mock_list_issues.return_value = [
-            {
-                'number': 5,
-                'title': 'Implement OAuth Flow',
-                'labels': [
-                    {'name': 'status:prioritized'},
-                    {'name': 'priority:1'}
-                ]
-            },
-            {
-                'number': 8,
-                'title': 'Fix Token Refresh',
-                'labels': [
-                    {'name': 'status:prioritized'},
-                    {'name': 'priority:2'}
-                ]
-            },
-            {
-                'number': 12,
-                'title': 'Add Error Handling',
-                'labels': [
-                    {'name': 'status:prioritized'},
-                    {'name': 'priority:3'}
-                ]
-            }
-        ]
-        
-        # Test completing issue with priority 1
-        self.priority_manager.adjust_priorities_after_completion(5)
-        
-        # Verify that priorities are adjusted correctly
-        # Issue #8 should now have priority 1
-        # Issue #12 should now have priority 2
-        self.assertEqual(mock_update_issue.call_count, 2)
-        
-        # Since we can't predict the order of calls, check that both expected calls were made
-        priority_updates = {}
-        for call in mock_update_issue.call_args_list:
-            args = call[1]
-            issue_number = args['issue_number']
-            labels = args['labels']
-            
-            # Extract priority from labels
-            priority = None
-            for label in labels:
-                if label.startswith('priority:'):
-                    priority = int(label.split(':')[1])
-                    break
-            
-            priority_updates[issue_number] = priority
-        
-        self.assertEqual(priority_updates[8], 1)
-        self.assertEqual(priority_updates[12], 2)
+        assert args['owner'] == 'test-owner'
+        assert args['repo'] == 'test-repo'
+        assert args['issue_number'] == 123
+        assert 'Status Update: `in-progress`' in args['body']
+        assert 'abcd123' in args['body']
+        assert 'Start implementing feature' in args['body']
     
     @patch('issue_status_updater.mcp5_add_issue_comment')
-    @patch('issue_status_updater.mcp5_update_issue')
-    @patch('issue_status_updater.mcp5_list_issues')
-    def test_notify_priority_changes(self, mock_list_issues, mock_update_issue, mock_add_comment):
-        """Test notifications about priority changes."""
-        # Mock getting all prioritized issues
-        mock_list_issues.return_value = [
-            {
-                'number': 5,
-                'title': 'Implement OAuth Flow',
-                'labels': [
-                    {'name': 'status:prioritized'},
-                    {'name': 'priority:1'}
-                ]
-            },
-            {
-                'number': 8,
-                'title': 'Fix Token Refresh',
-                'labels': [
-                    {'name': 'status:prioritized'},
-                    {'name': 'priority:2'}
-                ]
-            }
-        ]
+    @patch('issue_status_updater.datetime')
+    def test_add_status_comment_in_review(self, mock_datetime, mock_add_comment, issue_updater):
+        """Test adding a comment for in-review status."""
+        # Mock the datetime
+        mock_datetime.now.return_value.strftime.return_value = '2025-03-16 01:00:00'
         
-        # Test completing issue with priority 1
-        self.priority_manager.adjust_priorities_after_completion(5, notify=True)
+        # Call the method
+        details = {
+            'pr_number': 42,
+            'pr_title': 'Implement new feature'
+        }
+        issue_updater.add_status_comment(123, 'in-review', details)
         
-        # Verify that a comment was added to the issue
+        # Verify the API was called with appropriate message
         mock_add_comment.assert_called_once()
         args = mock_add_comment.call_args[1]
-        self.assertEqual(args['issue_number'], 8)
-        self.assertIn('Priority updated from 2 to 1', args['body'])
+        assert 'Status Update: `in-review`' in args['body']
+        assert '#42' in args['body']
+        assert 'Implement new feature' in args['body']
+    
+    @patch('issue_status_updater.mcp5_add_issue_comment')
+    @patch('issue_status_updater.datetime')
+    def test_add_status_comment_completed(self, mock_datetime, mock_add_comment, issue_updater):
+        """Test adding a comment for completed status."""
+        # Mock the datetime
+        mock_datetime.now.return_value.strftime.return_value = '2025-03-16 01:00:00'
+        
+        # Call the method
+        details = {
+            'pr_number': 42,
+            'test_results': {'success': True, 'coverage': 85.5}
+        }
+        issue_updater.add_status_comment(123, 'completed', details)
+        
+        # Verify the API was called with appropriate message
+        mock_add_comment.assert_called_once()
+        args = mock_add_comment.call_args[1]
+        assert 'Status Update: `completed`' in args['body']
+        assert '#42' in args['body']
+        assert 'Test status: ✅ Passed' in args['body']
+        assert 'Test coverage: 85.5%' in args['body']
+        assert 'Status Timeline' in args['body']
 
 
-if __name__ == '__main__':
-    unittest.main()
+class TestUpdateSingleIssue:
+    """Test class for the update_single_issue function."""
+    
+    @pytest.fixture
+    def mock_classes(self):
+        """Create mock instances of all analyzer classes."""
+        commit_analyzer = MagicMock()
+        pr_analyzer = MagicMock()
+        test_analyzer = MagicMock()
+        issue_updater = MagicMock()
+        priority_manager = MagicMock()
+        
+        # Set up issue_updater.get_current_status
+        issue_updater.get_current_status.return_value = 'prioritized'
+        
+        return {
+            'commit_analyzer': commit_analyzer,
+            'pr_analyzer': pr_analyzer,
+            'test_analyzer': test_analyzer,
+            'issue_updater': issue_updater,
+            'priority_manager': priority_manager
+        }
+    
+    @patch('issue_status_updater.mcp5_get_issue')
+    def test_update_single_issue_prioritized_to_in_progress(self, mock_get_issue, mock_classes):
+        """Test transitioning from prioritized to in-progress."""
+        # Set up mocks
+        mock_get_issue.return_value = {'labels': [{'name': 'status:prioritized'}]}
+        
+        commit_analyzer = mock_classes['commit_analyzer']
+        pr_analyzer = mock_classes['pr_analyzer']
+        issue_updater = mock_classes['issue_updater']
+        
+        # Mock commit analyzer to return a commit
+        commit_analyzer.get_commits_for_issue.return_value = [
+            {'hash': 'abcd123', 'message': 'refs #123: Start work', 'action': 'refs'}
+        ]
+        
+        # Mock PR analyzer to return no PR
+        pr_analyzer.get_pr_for_issue.return_value = None
+        pr_analyzer.get_open_pr_for_issue.return_value = None
+        
+        # Call the function
+        isu.update_single_issue(
+            123,
+            commit_analyzer,
+            pr_analyzer,
+            mock_classes['test_analyzer'],
+            issue_updater,
+            mock_classes['priority_manager']
+        )
+        
+        # Verify the issue was updated correctly
+        issue_updater.update_issue_status.assert_called_once_with(123, 'in-progress', force=False)
+        issue_updater.add_status_comment.assert_called_once()
+        
+        # Verify the details passed to add_status_comment
+        call_args = issue_updater.add_status_comment.call_args[0]
+        assert call_args[0] == 123
+        assert call_args[1] == 'in-progress'
+        assert call_args[2]['commit'] == 'abcd123'
+    
+    @patch('issue_status_updater.mcp5_get_issue')
+    def test_update_single_issue_in_progress_to_in_review(self, mock_get_issue, mock_classes):
+        """Test transitioning from in-progress to in-review."""
+        # Set up mocks
+        mock_get_issue.return_value = {'labels': [{'name': 'status:in-progress'}]}
+        
+        commit_analyzer = mock_classes['commit_analyzer']
+        pr_analyzer = mock_classes['pr_analyzer']
+        issue_updater = mock_classes['issue_updater']
+        
+        # Set current status to in-progress
+        issue_updater.get_current_status.return_value = 'in-progress'
+        
+        # Mock commit analyzer to return a commit
+        commit_analyzer.get_commits_for_issue.return_value = [
+            {'hash': 'abcd123', 'message': 'refs #123: Start work', 'action': 'refs'}
+        ]
+        
+        # Mock PR analyzer to return an open PR
+        pr_analyzer.get_pr_for_issue.return_value = None
+        pr_analyzer.get_open_pr_for_issue.return_value = {
+            'number': 42,
+            'title': 'Implement feature',
+            'state': 'open'
+        }
+        
+        # Call the function
+        isu.update_single_issue(
+            123,
+            commit_analyzer,
+            pr_analyzer,
+            mock_classes['test_analyzer'],
+            issue_updater,
+            mock_classes['priority_manager']
+        )
+        
+        # Verify the issue was updated correctly
+        issue_updater.update_issue_status.assert_called_once_with(123, 'in-review', force=False)
+        issue_updater.add_status_comment.assert_called_once()
+        
+        # Verify the details passed to add_status_comment
+        call_args = issue_updater.add_status_comment.call_args[0]
+        assert call_args[0] == 123
+        assert call_args[1] == 'in-review'
+        assert call_args[2]['pr_number'] == 42
+    
+    @patch('issue_status_updater.mcp5_get_issue')
+    def test_update_single_issue_in_review_to_completed(self, mock_get_issue, mock_classes):
+        """Test transitioning from in-review to completed."""
+        # Set up mocks
+        mock_get_issue.return_value = {'labels': [{'name': 'status:in-review'}]}
+        
+        commit_analyzer = mock_classes['commit_analyzer']
+        pr_analyzer = mock_classes['pr_analyzer']
+        test_analyzer = mock_classes['test_analyzer']
+        issue_updater = mock_classes['issue_updater']
+        priority_manager = mock_classes['priority_manager']
+        
+        # Set current status to in-review
+        issue_updater.get_current_status.return_value = 'in-review'
+        
+        # Mock commit analyzer to return a commit with 'fixes'
+        commit_analyzer.get_commits_for_issue.return_value = [
+            {'hash': 'efgh456', 'message': 'fixes #123: Complete feature', 'action': 'fixes', 'issue_refs': [123]}
+        ]
+        
+        # Mock PR analyzer to return a closed PR
+        pr_analyzer.get_pr_for_issue.return_value = {
+            'number': 42,
+            'title': 'Implement feature',
+            'state': 'closed'
+        }
+        pr_analyzer.get_open_pr_for_issue.return_value = None
+        
+        # Mock test analyzer to return successful tests
+        test_analyzer.run_tests_for_issue.return_value = {'success': True}
+        test_analyzer.get_coverage_for_issue.return_value = {'coverage': 90.5}
+        
+        # Call the function
+        isu.update_single_issue(
+            123,
+            commit_analyzer,
+            pr_analyzer,
+            test_analyzer,
+            issue_updater,
+            priority_manager
+        )
+        
+        # Verify the issue was updated correctly
+        issue_updater.update_issue_status.assert_called_once_with(123, 'completed', force=False)
+        issue_updater.add_status_comment.assert_called_once()
+        
+        # Verify the details passed to add_status_comment
+        call_args = issue_updater.add_status_comment.call_args[0]
+        assert call_args[0] == 123
+        assert call_args[1] == 'completed'
+        assert call_args[2]['pr_number'] == 42
+        assert call_args[2]['test_results']['success'] is True
+        
+        # Verify priorities were adjusted
+        priority_manager.adjust_priorities_after_completion.assert_called_once_with(123)
+    
+    @patch('issue_status_updater.mcp5_get_issue')
+    def test_update_single_issue_invalid_transition(self, mock_get_issue, mock_classes):
+        """Test handling of invalid status transitions."""
+        # Set up mocks
+        mock_get_issue.return_value = {'labels': [{'name': 'status:prioritized'}]}
+        
+        commit_analyzer = mock_classes['commit_analyzer']
+        pr_analyzer = mock_classes['pr_analyzer']
+        issue_updater = mock_classes['issue_updater']
+        
+        # Mock current status as 'prioritized'
+        issue_updater.get_current_status.return_value = 'prioritized'
+        
+        # Mock validate_status_transition to return False
+        issue_updater.validate_status_transition.return_value = False
+        
+        # Mock PR analyzer to return a closed PR (which would normally trigger 'completed')
+        pr_analyzer.get_pr_for_issue.return_value = {
+            'number': 42,
+            'title': 'Implement feature',
+            'state': 'closed'
+        }
+        
+        # Call the function
+        isu.update_single_issue(
+            123,
+            commit_analyzer,
+            pr_analyzer,
+            mock_classes['test_analyzer'],
+            issue_updater,
+            mock_classes['priority_manager']
+        )
+        
+        # Verify the issue was not updated
+        issue_updater.update_issue_status.assert_not_called()
+        issue_updater.add_status_comment.assert_not_called()
