@@ -2,6 +2,64 @@
 
 This document outlines the detailed tasks required to complete and enhance the IMAP MCP Server implementation using a test-driven development (TDD) approach. Tasks are sequenced for incremental progress with maximum chance of success.
 
+## IMPORTANT: Task Management Has Moved to GitHub Issues
+
+> **Note**: Task management has been moved from this file to GitHub Issues. 
+> This file is kept for historical reference only. All new tasks should be created and managed as GitHub Issues.
+
+### Viewing Tasks in GitHub Issues
+
+```bash
+# View all open issues
+gh issue list
+
+# View specific issue details
+gh issue view 1
+
+# Filter issues by label
+gh issue list --label "priority:1"
+gh issue list --label "status:in-progress"
+
+# Search issues by text
+gh issue list --search "OAuth"
+```
+
+### Creating New Tasks
+
+```bash
+# Create a new task interactively (recommended)
+gh issue create
+
+# Create a new task with specific details
+gh issue create --title "Task Title" --body "Description" --label "priority:X" --label "status:prioritized"
+```
+
+### Working with Tasks
+
+When starting work on a task:
+```bash
+# Create a branch referencing the issue
+git checkout -b feature/issue-X-short-description
+
+# Make commits that reference the issue
+git commit -m "refs #X: Description of changes"
+
+# Create a PR that will close the issue when merged
+gh pr create --title "Implement Feature" --body "Closes #X"
+```
+
+The automated status tracking system will:
+- Update issue status based on commits and PRs
+- Adjust priorities when tasks are completed
+- Add comments about task progress
+
+For detailed guidance, refer to:
+- [GitHub Issues Workflow](docs/GITHUB_ISSUES_WORKFLOW.md)
+- [Issue Status Automation](docs/ISSUE_STATUS_AUTOMATION.md)
+- [Commit Conventions](docs/COMMIT_CONVENTIONS.md)
+
+---
+
 ## Task Workflow for Claude
 
 When working on a task from this list, follow these steps:
@@ -84,39 +142,6 @@ This transition will improve collaboration, automation, and integration with dev
 
 
 
-## GitHub Issues Transition
-
-
-### GitHub Issues Transition Workflow
-
-The project is transitioning from using TASKS.md to GitHub Issues for task tracking. During the transition period, both systems will be used in parallel, with the following guidelines:
-
-#### Current Status
-
-* All existing tasks have been migrated to GitHub Issues
-* New tasks should be created as GitHub Issues
-* TASKS.md will be maintained until the transition is complete
-* Code coverage tasks for modules below 90.0% have been created with high priority
-
-#### Using GitHub Issues
-
-1. **Viewing Tasks**: Visit the [Issues page](https://github.com/imap-mcp-owner/imap-mcp/issues) to see all open tasks
-2. **Task Priority**: Priority is indicated by the `priority:X` label
-3. **Task Status**: Status is shown with the `status:X` label
-4. **Starting a Task**: Assign the issue to yourself and move it to "In Progress" in the project board
-5. **Completing a Task**: Close the issue when the task is done (PR merged)
-
-#### Final Transition
-
-A task has been created to complete the transition by:
-1. Updating TASKS.md to keep methodology sections but removing task listings
-2. Documenting GitHub Issues workflow in a new WORKFLOW.md file
-3. Updating all related documentation to reference GitHub Issues
-
-This transition will improve collaboration, automation, and integration with development activities.
-
-
-
 ## Task Status Definitions
 
 Tasks in the Task Tracker can have the following statuses:
@@ -159,7 +184,7 @@ uv run -m pytest --cov=imap_mcp
 uv run -m pytest -v
 ```
 
-## Implementation Tasks
+## Historical Tasks (Pre-GitHub Issues Migration)
 
 ### Task Tracker
 

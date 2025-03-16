@@ -27,54 +27,61 @@
 - Project structure follows the standard Python package layout
 
 ## Task Workflow
-When working on tasks from TASKS.md, follow this workflow:
+When working on tasks from GitHub Issues, follow this workflow:
 
 1. **Task Analysis**:
-   - Read and understand the task requirements
-   - Assess if the task needs to be broken down into smaller subtasks
-   - If needed, update TASKS.md with the subtask breakdown
+   - Read and understand the issue requirements
+   - Assess if the issue needs to be broken down into smaller subtasks
+   - If needed, create separate issues for subtasks and link them to the parent issue
+   - Analyze existing labels and make sure the issue has the correct priority and status labels
 
-2. **Task Status Update**:
-   - Update the task's status in the Task Tracker table from "prioritized" to "started"
-   - Commit this change before beginning implementation
+2. **Starting Work on an Issue**:
+   - Create a branch that references the issue number: `git checkout -b feature/issue-[NUMBER]-[SHORT_DESCRIPTION]`
+   - Make an initial commit that references the issue: `git commit -m "refs #[NUMBER]: Start implementing [FEATURE]"`
+   - The automated status tracking system will detect this commit and change the issue status to "in-progress"
 
 3. **Test-Driven Development**:
    - Write tests first that verify the desired functionality
    - Implement the feature until all tests pass
    - Refactor code while maintaining test coverage
-   - Run full test suite to check for regressions
+   - Run full test suite to check for regressions: `uv run pytest --cov=imap_mcp`
 
-4. **Task Completion**:
-   - Change the task's status to "completed" in the Task Tracker
-   - Change the task's priority to "-" in the Task Tracker (indicating no priority for completed tasks)
-   - Move task details from TASKS.md to TASKS_COMPLETED.md
-   - Add a detailed summary of accomplishments under the task in TASKS_COMPLETED.md
-   - Keep task numbers unchanged - do NOT renumber tasks
+4. **Completing an Issue**:
+   - Create a pull request that references the issue: `gh pr create --title "[TITLE]" --body "Closes #[NUMBER]"`
+   - The body should include "Closes #[NUMBER]" or "Fixes #[NUMBER]" to automatically close the issue when merged
+   - The automated status tracking system will update the issue status to "completed" when the PR is merged
+   - It will also automatically adjust priorities of remaining tasks
 
-5. **Priority Reassessment**:
-   - After completing a task, reassess priorities for remaining tasks
-   - Update the priority numbers in the Task Tracker as appropriate
-   - Ensure at least one remaining task has priority 1
-   - Priorities should be sequential starting from 1 with no gaps
-   - Document the reasoning for any priority changes in a git commit message
+5. **GitHub Issue Management Commands**:
+   - View all issues: `gh issue list`
+   - View specific issue: `gh issue view [NUMBER]`
+   - Filter issues by label: `gh issue list --label "priority:1"`
+   - Create new issue: `gh issue create` (interactive) or:
+     `gh issue create --title "Title" --body "Description" --label "priority:X" --label "status:prioritized"`
+   - Edit issue: `gh issue edit [NUMBER] --add-label "priority:1" --remove-label "priority:2"`
 
 6. **Documentation**:
    - Update docstrings in implementation
    - Update README.md or other docs if needed
-   - Add new commands or processes to CLAUDE.md if relevant
+   - Add new commands or processes to this CLAUDE.md file if relevant
 
-7. **Commit Changes**:
-   - Create a descriptive commit message including the task number
-   - Push commits to GitHub repository
+7. **Commit Conventions**:
+   - Use these prefixes in commit messages to trigger automatic status changes:
+     - `refs #X`: References the issue without changing status
+     - `implements #X`: Indicates implementation progress
+     - `fixes #X`: Indicates the issue is fixed (used in final commits)
+     - `closes #X`: Same as fixes, will close the issue when merged
+   - Always include the issue number with the # prefix
+   - Add descriptive message after the issue reference
 
-## Task Status Definitions
+## Issue Status Definitions
 
-Tasks in the Task Tracker can have the following statuses:
+GitHub Issues have the following status labels:
 
-- **proposed**: Initial idea for a task, not yet fully defined
-- **defined**: Task has been specified but not yet prioritized
-- **prioritized**: Task has been assigned a priority number
-- **started**: Work on the task has begun
-- **completed**: Implementation is finished and passes all tests
-- **reviewed**: Task has been reviewed by another contributor
-- **archived**: Task has been moved to TASKS_COMPLETED.md
+- **status:prioritized**: Task has been assigned a priority, not yet started
+- **status:in-progress**: Work on the task has begun (automatic when commits reference issue)
+- **status:completed**: Implementation is finished (automatic when PR with "fixes/closes" is merged)
+- **status:reviewed**: Task has been reviewed (currently manual update)
+- **status:archived**: Task has been archived (currently manual update)
+
+Priority labels follow the format `priority:X` where X is a number starting from 1 (highest priority).

@@ -1,107 +1,174 @@
 # GitHub Issues Workflow
 
-This document describes the workflow for using GitHub Issues for task tracking in the IMAP MCP project.
+This document outlines the workflow for using GitHub Issues to track and manage tasks in the IMAP MCP project.
 
 ## Overview
 
-The IMAP MCP project is transitioning from using TASKS.md to GitHub Issues for task management. This transition will enhance our development process by:
+GitHub Issues provides an integrated task management system that:
+- Tracks tasks with priority and status labels
+- Links issues to commits and pull requests
+- Automates status transitions
+- Enables collaboration through comments
+- Provides reporting and visualization options
 
-1. Improving collaboration and visibility
-2. Enabling automation through GitHub Actions
-3. Integrating task tracking with code reviews and pull requests
-4. Providing better organization with labels, milestones, and project boards
+## Issue Structure
 
-## Task Lifecycle
-
-### Creating Tasks
-
-New tasks should be created as GitHub Issues:
-
-1. Navigate to the [Issues tab](https://github.com/non-dirty/imap-mcp/issues)
-2. Click "New issue"
-3. Use a descriptive title prefixed with "Task: " (e.g., "Task: Implement OAuth2 Flow")
-4. Include detailed information in the description:
-   - Test Specifications
-   - Implementation Steps
-   - Expected Outcome
-5. Add appropriate labels:
-   - `priority:X` to indicate priority (e.g., `priority:1` for highest priority)
-   - `status:prioritized` for tasks that are ready to be worked on
-   - Other relevant labels (e.g., `type:feature`, `type:bug`, `type:test`)
-
-### Tracking Progress
-
-Tasks progress through the following stages:
-
-1. **Backlog**: Tasks that are defined but not yet prioritized
-2. **Prioritized**: Tasks that are ready to be worked on
-3. **In Progress**: Tasks that are actively being worked on
-4. **Review**: Tasks that are completed and awaiting review
-5. **Done**: Tasks that are completed and merged
-
-The project board will automatically move tasks between columns based on labels and issue state.
-
-### Working on Tasks
-
-When you start working on a task:
-
-1. Assign the issue to yourself
-2. Change the status label to `status:in-progress`
-3. Create a branch named after the issue (e.g., `task-24-github-issues`)
-4. Reference the issue number in your commits (e.g., "refs #24: Implement GitHub Issues integration")
-5. Create a pull request that references the issue (e.g., "Closes #24")
-
-### Completing Tasks
-
-When a task is completed:
-
-1. Ensure all tests pass and code coverage meets the threshold
-2. Submit a pull request that references the issue
-3. Update the issue with any relevant information
-4. The issue will be automatically closed when the PR is merged
-
-## Automated Workflows
-
-The following automated workflows are in place:
-
-1. **Issue Templates**: Standard templates for different types of tasks
-2. **Project Board Automation**: Automatic movement of issues between columns
-3. **Issue Linking**: Automatic linking of issues and pull requests
-4. **Status Updates**: Automatic status updates based on actions
-
-## Issue Status Tracking
-
-Issues follow this lifecycle:
-
-1. **prioritized**: Task has been assigned a priority number
-2. **in-progress**: Work on the task has begun
-3. **completed**: Implementation is finished and passes all tests
-4. **reviewed**: Task has been reviewed by another contributor
-5. **archived**: Task has been closed and archived
-
-### Automated Status Updates
-
-The project includes an automated status tracking system that monitors repository activity and updates issue statuses accordingly. This system:
-
-- Automatically transitions issues from `prioritized` to `in-progress` when work begins
-- Updates to `completed` when tests pass and a PR is merged
-- Adds informative comments about status changes with relevant details
-
-For detailed information on this automation, see [ISSUE_STATUS_AUTOMATION.md](../docs/ISSUE_STATUS_AUTOMATION.md).
+Each GitHub Issue contains:
+1. **Title**: Brief description prefixed with "Task #X" when migrated from TASKS.md
+2. **Description**: Detailed requirements and implementation notes
+3. **Labels**: Priority and status indicators
+4. **Comments**: Progress updates and discussion
+5. **Links**: Related issues, commits, and PRs
 
 ## Issue Labels
 
-1. **Keep issues atomic**: Each issue should represent a single, cohesive task
-2. **Write clear specifications**: Include detailed test specifications in each issue
-3. **Link related issues**: Use GitHub's reference syntax to link related issues
-4. **Update status promptly**: Keep the status labels current to reflect actual progress
-5. **Provide context**: Include enough information for anyone to understand the task
+Issues use two types of labels:
+1. **Priority Labels**: `priority:X` where X is a number (lower is higher priority)
+2. **Status Labels**: `status:X` where X is one of:
+   - `prioritized`: Task is defined and prioritized but not started
+   - `in-progress`: Work has begun on the task
+   - `completed`: Implementation is finished and passes tests
+   - `reviewed`: Task has been reviewed by another contributor
+   - `archived`: Task has been completed and archived
 
-## Code Coverage Tasks
+## Workflow for AI Assistants (like Claude)
 
-As part of our test-driven development approach, maintaining high code coverage is essential. The transition script automatically creates high-priority tasks for modules with coverage below the threshold (90%).
+When assigned a task from GitHub Issues, AI assistants should follow this workflow:
 
-These tasks should be addressed before other feature work to ensure a solid foundation for future development.
+1. **Issue Analysis**:
+   ```bash
+   # View issue details
+   gh issue view ISSUE_NUMBER
+   ```
+   - Understand the requirements
+   - Note the priority and status
+   - Check for any blockers or dependencies
+
+2. **Starting Work**:
+   ```bash
+   # Create a branch referencing the issue
+   git checkout -b feature/issue-ISSUE_NUMBER-short-description
+   
+   # Make initial commit
+   git commit -m "refs #ISSUE_NUMBER: Begin implementation"
+   ```
+
+3. **Test-Driven Development**:
+   - Write tests first
+   - Implement the feature
+   - Refactor while maintaining test coverage
+   ```bash
+   # Run tests with coverage
+   uv run pytest --cov=imap_mcp
+   ```
+
+4. **Progress Updates**:
+   ```bash
+   # Make commits that reference the issue
+   git commit -m "implements #ISSUE_NUMBER: Add feature X"
+   
+   # Push changes
+   git push origin feature/issue-ISSUE_NUMBER-short-description
+   ```
+
+5. **Completing the Task**:
+   ```bash
+   # Create a pull request
+   gh pr create --title "Implement Feature" --body "Closes #ISSUE_NUMBER"
+   ```
+
+6. **Documentation**:
+   - Update relevant documentation
+   - Add code comments and docstrings
+
+## Command Reference for GitHub Issues
+
+### Viewing Issues
+```bash
+# List all open issues
+gh issue list
+
+# View specific issue
+gh issue view ISSUE_NUMBER
+
+# Filter issues by label
+gh issue list --label "priority:1"
+gh issue list --label "status:in-progress"
+
+# Search issues
+gh issue list --search "OAuth"
+```
+
+### Creating Issues
+```bash
+# Create interactively (recommended)
+gh issue create
+
+# Create with parameters
+gh issue create --title "Feature Title" --body "Description" --label "priority:X" --label "status:prioritized"
+```
+
+### Manipulating Issues
+```bash
+# Change status
+gh issue edit ISSUE_NUMBER --add-label "status:in-progress" --remove-label "status:prioritized"
+
+# Change priority
+gh issue edit ISSUE_NUMBER --add-label "priority:1" --remove-label "priority:2"
+
+# Close issue
+gh issue close ISSUE_NUMBER
+```
+
+### Pull Requests
+```bash
+# List pull requests
+gh pr list
+
+# Create pull request
+gh pr create --title "Title" --body "Closes #ISSUE_NUMBER"
+
+# View pull request
+gh pr view PR_NUMBER
+
+# Merge pull request
+gh pr merge PR_NUMBER
+```
+
+## Automatic Status Updates
+
+The automated status tracking system will:
+1. Monitor commits and PRs for issue references
+2. Update issue statuses based on commit message keywords
+3. Adjust priorities when tasks are completed
+4. Add comments with progress details
+
+Keywords that trigger status changes:
+- `refs #X`: References the issue without changing status
+- `implements #X`: Indicates implementation progress
+- `fixes #X`: Indicates the issue is fixed
+- `closes #X`: Same as fixes, will close the issue when PR is merged
+
+See [Issue Status Automation](ISSUE_STATUS_AUTOMATION.md) for more details.
+
+## Issue Status Tracking
+
+The system automatically tracks and updates issue statuses based on repository activity:
+
+1. When commits reference an issue with "refs #X" or "implements #X", the status is updated to "in-progress"
+2. When a PR with "fixes #X" or "closes #X" is merged, the status is updated to "completed"
+3. When an issue is completed, priorities of remaining issues are automatically adjusted
+
+For more details on the automated status updates, see [Issue Status Automation](ISSUE_STATUS_AUTOMATION.md).
+
+## Best Practices
+
+1. **Always reference issues in commits and PRs** using the # syntax
+2. **Create branches that reference issue numbers** for clear association
+3. **Use the automated status system** rather than manually changing labels
+4. **Keep descriptions updated** with implementation details
+5. **Close issues via PRs** using keywords like "Closes #X" in the PR description
+6. **Maintain sequential priority numbers** starting from 1 (highest priority)
 
 ## Legacy Tasks
 
