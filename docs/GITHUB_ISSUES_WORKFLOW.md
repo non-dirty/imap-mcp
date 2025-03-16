@@ -81,6 +81,47 @@ When assigned a task from GitHub Issues, AI assistants should follow this workfl
    - Update relevant documentation
    - Add code comments and docstrings
 
+## Issue Helper Script
+
+For simplified issue management, the project includes a helper script that automates common tasks and ensures consistent workflows:
+
+```bash
+python scripts/issue_helper.py [command] [arguments]
+```
+
+### Key Commands
+
+- **Start Work**: Creates a branch, makes an initial commit, and updates status
+  ```bash
+  python scripts/issue_helper.py start 42
+  ```
+
+- **Complete Issue**: Creates a PR that closes the issue when merged
+  ```bash
+  python scripts/issue_helper.py complete 42
+  ```
+
+- **Check Status**: View current status, activity, and related PRs
+  ```bash
+  python scripts/issue_helper.py check 42
+  ```
+
+- **Update Status**: Manually update issue status (fallback option)
+  ```bash
+  python scripts/issue_helper.py update 42 completed
+  ```
+
+### Integration with Automated Workflow
+
+The helper script complements the automated GitHub Actions workflow by:
+
+1. **Ensuring consistent formats** for branch names, commit messages, and PR titles
+2. **Providing guidance** on next steps at each stage of the workflow
+3. **Adding safeguards** to prevent workflow errors (branch naming, status transitions)
+4. **Serving as fallback** when automated status updates don't trigger correctly
+
+For detailed usage instructions, see [ISSUE_HELPER_USAGE.md](./ISSUE_HELPER_USAGE.md).
+
 ## Command Reference for GitHub Issues
 
 ### Viewing Issues
@@ -135,21 +176,77 @@ gh pr view PR_NUMBER
 gh pr merge PR_NUMBER
 ```
 
-## Automatic Status Updates
+## Automated Status Updates
 
-The automated status tracking system will:
-1. Monitor commits and PRs for issue references
-2. Update issue statuses based on commit message keywords
-3. Adjust priorities when tasks are completed
-4. Add comments with progress details
+The repository includes a GitHub Actions workflow that automatically updates issue statuses based on git activity and pull request events. This ensures that issue status labels are kept up-to-date throughout the development process.
 
-Keywords that trigger status changes:
-- `refs #X`: References the issue without changing status
-- `implements #X`: Indicates implementation progress
-- `fixes #X`: Indicates the issue is fixed
-- `closes #X`: Same as fixes, will close the issue when PR is merged
+### Status Transition Rules
 
-See [Issue Status Automation](ISSUE_STATUS_AUTOMATION.md) for more details.
+The automated system enforces the following status transitions:
+
+1. `prioritized` → `in-progress`
+   - Triggered when a commit references an issue with keywords like "refs #X" or "implements #X"
+   
+2. `in-progress` → `in-review`
+   - Triggered when a pull request that references the issue is opened or reopened
+
+3. `in-review` → `completed` 
+   - Triggered when a pull request that references the issue with keywords like "fixes #X" or "closes #X" is merged
+
+4. Reversion to previous status
+   - If a pull request is closed without merging, the issue status will revert to its previous state (usually `in-progress`)
+
+### Commit Message Conventions
+
+To trigger the automated status updates, use these prefixes in commit messages:
+
+- `refs #X`: References the issue without changing status if already in progress
+- `implements #X`: Explicitly indicates implementation progress (changes status to in-progress)
+- `fixes #X`: Indicates the issue is fixed (will change to completed when PR is merged)
+- `closes #X`: Same as fixes (will close the issue when PR is merged)
+
+Examples:
+```
+git commit -m "refs #42: Start implementing user authentication"
+git commit -m "implements #42: Add login form and validation"
+git commit -m "fixes #42: Fix password reset functionality"
+```
+
+### Pull Request Conventions
+
+For automatic status tracking, include issue references in your pull request:
+
+1. Include issue numbers in the PR title or description using the `#X` format
+2. To auto-close issues when the PR is merged, use one of these phrases in the PR description:
+   - `Fixes #X`
+   - `Closes #X` 
+   - `Resolves #X`
+
+### Manual Status Updates
+
+For special cases where the automated updates don't apply, you can manually update the status:
+
+1. Using GitHub's web interface:
+   - Go to the issue page
+   - Click on the status label in the right sidebar
+   - Select the new status label
+
+2. Using the GitHub CLI:
+   ```
+   gh issue edit 42 --add-label "status:in-review" --remove-label "status:in-progress"
+   ```
+
+### Testing the Workflow
+
+To test the automated status updates:
+
+1. Create a test issue: `gh issue create --title "Test automated status updates" --body "Testing workflow" --label "status:prioritized"`
+2. Make a commit referencing the issue: `git commit -m "refs #X: Test commit" --allow-empty`
+3. Push the commit: `git push origin main`
+4. Create a PR referencing the issue: `gh pr create --title "Test PR for #X" --body "Testing PR workflow"`
+5. Merge the PR to test the completed status transition
+
+You can view the workflow runs in the GitHub Actions tab to verify proper execution.
 
 ## Issue Status Tracking
 

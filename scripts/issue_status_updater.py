@@ -20,7 +20,8 @@ import subprocess
 import sys
 import json
 import logging
-from typing import Dict, List, Optional, Tuple, Any, Union
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple, Any, Union, Set
 from pathlib import Path
 
 # Setup logging
@@ -57,6 +58,20 @@ except ImportError:
         logger.info(f"Mock list_issues called with {kwargs}")
         return []
 
+
+# Define status transition constraints
+# This defines the valid status transitions
+VALID_STATUS_TRANSITIONS = {
+    'prioritized': {'in-progress', 'canceled'},
+    'in-progress': {'in-review', 'completed', 'canceled', 'prioritized'},
+    'in-review': {'in-progress', 'completed', 'canceled'},
+    'completed': {'reopened', 'canceled'},
+    'reopened': {'in-progress', 'canceled'},
+    'canceled': {'prioritized', 'in-progress'}
+}
+
+# Define the display order of statuses for visual representation
+STATUS_ORDER = ['prioritized', 'in-progress', 'in-review', 'completed', 'reopened', 'canceled']
 
 class CommitAnalyzer:
     """Analyze git commits for issue references."""
@@ -134,13 +149,14 @@ class CommitAnalyzer:
         issue_matches = re.findall(r'#(\d+)', message)
         issue_refs = [int(num) for num in issue_matches]
         
-        # Check for action keywords in priority order
+        # Check for action keywords in priority order with more flexible patterns
+        # that allow optional colons and spacing variations
         actions = {
-            'closes': r'closes\s+#\d+',
-            'fixes': r'fixes\s+#\d+',
-            'resolves': r'resolves\s+#\d+',
-            'implements': r'implements\s+#\d+',
-            'refs': r'refs\s+#\d+'
+            'closes': r'closes\s*:?\s*#\d+',
+            'fixes': r'fixes\s*:?\s*#\d+',
+            'resolves': r'resolves\s*:?\s*#\d+',
+            'implements': r'implements\s*:?\s*#\d+',
+            'refs': r'refs\s*:?\s*#\d+'
         }
         
         action = None
@@ -228,7 +244,10 @@ class PullRequestAnalyzer:
                     'title': title,
                     'body': body,
                     'state': issue.get('state'),
-                    'linked_issues': linked_issues
+                    'linked_issues': linked_issues,
+                    'created_at': issue.get('created_at', ''),
+                    'updated_at': issue.get('updated_at', ''),
+                    'closed_at': issue.get('closed_at', '')
                 })
             
             return prs
@@ -269,6 +288,24 @@ class PullRequestAnalyzer:
             Dictionary with PR information or None if not found
         """
         prs = self.get_pull_requests(state='all')
+        
+        for pr in prs:
+            if issue_number in pr['linked_issues']:
+                return pr
+        
+        return None
+    
+    def get_open_pr_for_issue(self, issue_number: int) -> Optional[Dict]:
+        """
+        Find open pull requests related to a specific issue.
+        
+        Args:
+            issue_number: GitHub issue number
+            
+        Returns:
+            Dictionary with PR information or None if not found
+        """
+        prs = self.get_pull_requests(state='open')
         
         for pr in prs:
             if issue_number in pr['linked_issues']:
@@ -499,16 +536,66 @@ class IssueUpdater:
         self.owner = owner
         self.repo = repo
     
-    def update_issue_status(self, issue_number: int, status: str) -> Dict:
+    def get_current_status(self, issue_number: int) -> str:
+        """
+        Get the current status of an issue.
+        
+        Args:
+            issue_number: GitHub issue number
+            
+        Returns:
+            Current status string (without 'status:' prefix)
+        """
+        try:
+            # Get current issue details
+            issue = mcp5_get_issue(
+                owner=self.owner,
+                repo=self.repo,
+                issue_number=issue_number
+            )
+            
+            # Extract current status
+            for label in issue.get('labels', []):
+                name = label.get('name', '')
+                if name.startswith('status:'):
+                    return name.replace('status:', '')
+            
+            # Default if no status found
+            return 'prioritized'
+            
+        except Exception as e:
+            logger.error(f"Error getting issue status: {e}")
+            return 'prioritized'
+    
+    def validate_status_transition(self, current_status: str, new_status: str) -> bool:
+        """
+        Validate if a status transition is allowed.
+        
+        Args:
+            current_status: Current issue status
+            new_status: Proposed new status
+            
+        Returns:
+            Boolean indicating if the transition is valid
+        """
+        # Same status is always valid
+        if current_status == new_status:
+            return True
+        
+        # Check transition validity
+        return new_status in VALID_STATUS_TRANSITIONS.get(current_status, set())
+    
+    def update_issue_status(self, issue_number: int, status: str, force: bool = False) -> Dict:
         """
         Update an issue's status label.
         
         Args:
             issue_number: GitHub issue number
             status: New status ('in-progress', 'completed', etc.)
+            force: If True, bypass transition validation
             
         Returns:
-            Response from the GitHub API
+            Response from the GitHub API or empty dict if update not performed
         """
         try:
             # Get current issue details
@@ -520,6 +607,21 @@ class IssueUpdater:
             
             # Extract current labels
             current_labels = [label['name'] for label in issue.get('labels', [])]
+            
+            # Extract current status
+            current_status = 'prioritized'  # Default
+            for label in current_labels:
+                if label.startswith('status:'):
+                    current_status = label.replace('status:', '')
+                    break
+            
+            # Validate status transition
+            if not force and not self.validate_status_transition(current_status, status):
+                logger.warning(
+                    f"Invalid status transition for issue #{issue_number}: "
+                    f"{current_status} -> {status}"
+                )
+                return {}
             
             # Remove existing status labels
             new_labels = [label for label in current_labels if not label.startswith('status:')]
@@ -555,14 +657,27 @@ class IssueUpdater:
             Response from the GitHub API
         """
         try:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
             # Build comment body based on status
-            body = f"Status changed to: `{status}`\n\n"
+            body = f"## Status Update: `{status}`\n\n"
+            body += f"*Updated at: {timestamp}*\n\n"
             
             if status == 'in-progress':
                 # For started status, include commit info
                 commit = details.get('commit', 'unknown')
                 message = details.get('message', '')
-                body += f"Work started in commit [{commit}](https://github.com/{self.owner}/{self.repo}/commit/{commit}):\n> {message}\n"
+                body += f"📝 Work started in commit [{commit}](https://github.com/{self.owner}/{self.repo}/commit/{commit}):\n> {message}\n"
+            
+            elif status == 'in-review':
+                # For in-review status, include PR info
+                pr_number = details.get('pr_number')
+                pr_title = details.get('pr_title', 'Review requested')
+                
+                if pr_number:
+                    body += f"👀 Under review in PR [#{pr_number}](https://github.com/{self.owner}/{self.repo}/pull/{pr_number}):\n> {pr_title}\n"
+                else:
+                    body += f"👀 Issue is now under review.\n"
             
             elif status == 'completed':
                 # For completed status, include test results and PR
@@ -572,11 +687,25 @@ class IssueUpdater:
                 if test_results:
                     coverage = test_results.get('coverage', 0.0)
                     success = test_results.get('success', False)
-                    body += f"Test status: {'✅ Passed' if success else '❌ Failed'}\n"
-                    body += f"Test coverage: {coverage:.1f}%\n\n"
+                    body += f"🧪 Test status: {'✅ Passed' if success else '❌ Failed'}\n"
+                    body += f"📊 Test coverage: {coverage:.1f}%\n\n"
                 
                 if pr_number:
-                    body += f"Implemented in PR #{pr_number}: https://github.com/{self.owner}/{self.repo}/pull/{pr_number}\n"
+                    body += f"✅ Implemented in PR [#{pr_number}](https://github.com/{self.owner}/{self.repo}/pull/{pr_number})\n"
+            
+            elif status == 'reopened':
+                # For reopened status
+                reason = details.get('reason', 'Issue requires additional work')
+                body += f"🔄 Issue reopened: {reason}\n"
+            
+            elif status == 'canceled':
+                # For canceled status
+                reason = details.get('reason', 'Issue has been canceled')
+                body += f"❌ Issue canceled: {reason}\n"
+            
+            # Add visualization of status progression
+            body += "\n### Status Timeline\n\n"
+            body += self._generate_status_timeline(status)
             
             # Add the comment
             result = mcp5_add_issue_comment(
@@ -592,6 +721,31 @@ class IssueUpdater:
         except Exception as e:
             logger.error(f"Error adding status comment: {e}")
             return {}
+    
+    def _generate_status_timeline(self, current_status: str) -> str:
+        """
+        Generate a visual representation of the status timeline.
+        
+        Args:
+            current_status: The current status to highlight
+            
+        Returns:
+            Markdown string with status timeline visualization
+        """
+        timeline = ""
+        
+        for i, status in enumerate(STATUS_ORDER):
+            if status == current_status:
+                # Highlight current status
+                timeline += f"**[{status}]** "
+            else:
+                timeline += f"{status} "
+            
+            # Add arrow except for last item
+            if i < len(STATUS_ORDER) - 1:
+                timeline += "→ "
+        
+        return timeline
 
 
 class PriorityManager:
@@ -854,9 +1008,9 @@ jobs:
       
       - name: Run issue status updater
         run: |
-          python scripts/issue_status_updater.py \
-            --owner ${{ github.repository_owner }} \
-            --repo ${{ github.event.repository.name }} \
+          python scripts/issue_status_updater.py \\
+            --owner ${{ github.repository_owner }} \\
+            --repo ${{ github.event.repository.name }} \\
             ${{ github.event.inputs.issue_number && format('--issue {0}', github.event.inputs.issue_number) || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -876,60 +1030,143 @@ jobs:
 
 def main():
     """Run the issue status updater as a standalone script."""
-    parser = argparse.ArgumentParser(description='GitHub Issue Status Updater')
-    parser.add_argument('--owner', required=True, help='GitHub repository owner')
-    parser.add_argument('--repo', required=True, help='GitHub repository name')
+    parser = argparse.ArgumentParser(description='Update GitHub issue statuses based on git activity')
+    parser.add_argument('--owner', help='GitHub repository owner')
+    parser.add_argument('--repo', help='GitHub repository name')
     parser.add_argument('--issue', type=int, help='Specific issue number to update')
-    parser.add_argument('--create-workflow', action='store_true', help='Create GitHub Actions workflow file')
-    parser.add_argument('--scan-commits', type=int, default=10, help='Number of recent commits to scan')
+    parser.add_argument('--update-from-commit', help='Update status based on a specific commit message')
+    parser.add_argument('--update-from-pr', type=int, help='Update status based on a specific PR number')
+    parser.add_argument('--pr-action', choices=['opened', 'closed', 'merged'], help='PR action for status determination')
     parser.add_argument('--dry-run', action='store_true', help='Print actions without executing them')
-    
+    parser.add_argument('--force', action='store_true', help='Force status updates, bypassing validation')
     args = parser.parse_args()
     
-    # Create GitHub Actions workflow if requested
-    if args.create_workflow:
-        workflow = GitHubActionsWorkflow()
-        workflow.create_workflow_file()
-        return 0
+    # Determine owner and repo from environment if not provided
+    owner = args.owner
+    repo = args.repo
     
-    # Initialize analyzers
+    if not owner or not repo:
+        if 'GITHUB_REPOSITORY' in os.environ:
+            parts = os.environ['GITHUB_REPOSITORY'].split('/')
+            if len(parts) == 2:
+                if not owner:
+                    owner = parts[0]
+                if not repo:
+                    repo = parts[1]
+    
+    if not owner or not repo:
+        logger.error("GitHub repository owner and name are required")
+        return 1
+    
+    # Create analyzers and updaters
     commit_analyzer = CommitAnalyzer()
-    pr_analyzer = PullRequestAnalyzer(owner=args.owner, repo=args.repo)
+    pr_analyzer = PullRequestAnalyzer(owner=owner, repo=repo)
     test_analyzer = TestResultsAnalyzer()
-    issue_updater = IssueUpdater(owner=args.owner, repo=args.repo)
-    priority_manager = PriorityManager(owner=args.owner, repo=args.repo)
+    issue_updater = IssueUpdater(owner=owner, repo=repo)
+    priority_manager = PriorityManager(owner=owner, repo=repo)
     
-    # If a specific issue is provided, only update that one
-    if args.issue:
+    # If a specific commit message is provided, use it for updating
+    if args.update_from_commit:
+        if not args.issue:
+            logger.error("Issue number is required when updating from commit")
+            return 1
+        
+        parsed = commit_analyzer.parse_commit_message(args.update_from_commit)
+        if args.issue in parsed['issue_refs']:
+            # Determine status based on commit message keywords
+            action = parsed['action']
+            status = None
+            
+            if action == 'closes' or action == 'fixes' or action == 'resolves':
+                status = 'completed'
+            elif action == 'implements':
+                status = 'in-progress'
+            elif action == 'refs':
+                status = 'in-progress'
+            
+            if status:
+                details = {
+                    'commit': 'manual-update',
+                    'message': args.update_from_commit,
+                    'action': action
+                }
+                logger.info(f"Setting issue #{args.issue} to {status} based on commit message")
+                issue_updater.update_issue_status(args.issue, status, force=args.force)
+                issue_updater.add_status_comment(args.issue, status, details)
+            else:
+                logger.info(f"No status change needed for issue #{args.issue}")
+    
+    # If a specific PR is provided, use it for updating
+    elif args.update_from_pr:
+        if not args.issue:
+            logger.error("Issue number is required when updating from PR")
+            return 1
+        
+        if not args.pr_action:
+            logger.error("PR action is required when updating from PR")
+            return 1
+        
+        status = None
+        details = {
+            'pr_number': args.update_from_pr,
+            'pr_action': args.pr_action
+        }
+        
+        if args.pr_action == 'opened':
+            status = 'in-review'
+        elif args.pr_action == 'merged':
+            status = 'completed'
+        elif args.pr_action == 'closed':
+            # Revert to previous status (likely in-progress)
+            current = issue_updater.get_current_status(args.issue)
+            if current == 'in-review':
+                status = 'in-progress'
+        
+        if status:
+            logger.info(f"Setting issue #{args.issue} to {status} based on PR {args.update_from_pr} {args.pr_action}")
+            issue_updater.update_issue_status(args.issue, status, force=args.force)
+            issue_updater.add_status_comment(args.issue, status, details)
+    
+    # If a specific issue is provided without other options, update it based on general analysis
+    elif args.issue:
         update_single_issue(
             args.issue, 
             commit_analyzer, 
             pr_analyzer, 
             test_analyzer, 
-            issue_updater,
+            issue_updater, 
             priority_manager,
-            args.dry_run
+            args.dry_run, 
+            args.force
         )
-        return 0
     
-    # Otherwise, scan recent commits to find issues to update
-    commits = commit_analyzer.get_recent_commits(limit=args.scan_commits)
-    issue_numbers = set()
-    
-    for commit in commits:
-        issue_numbers.update(commit['issue_refs'])
-    
-    # Update each referenced issue
-    for issue_number in issue_numbers:
-        update_single_issue(
-            issue_number, 
-            commit_analyzer, 
-            pr_analyzer, 
-            test_analyzer, 
-            issue_updater,
-            priority_manager,
-            args.dry_run
-        )
+    # Otherwise, update all recent issues
+    else:
+        # Get all open issues from GitHub
+        try:
+            issues = mcp5_list_issues(owner=owner, repo=repo, state='open')
+            logger.info(f"Found {len(issues)} open issues")
+            
+            # Update each issue
+            for issue in issues:
+                issue_number = issue.get('number')
+                if not issue_number:
+                    continue
+                
+                update_single_issue(
+                    issue_number, 
+                    commit_analyzer, 
+                    pr_analyzer, 
+                    test_analyzer, 
+                    issue_updater, 
+                    priority_manager,
+                    args.dry_run, 
+                    args.force
+                )
+                
+        except Exception as e:
+            logger.error(f"Error updating issues: {e}")
+            return 1
     
     return 0
 
@@ -941,7 +1178,8 @@ def update_single_issue(
     test_analyzer: TestResultsAnalyzer,
     issue_updater: IssueUpdater,
     priority_manager: PriorityManager,
-    dry_run: bool = False
+    dry_run: bool = False,
+    force: bool = False
 ) -> None:
     """
     Update a single issue based on git activity and tests.
@@ -954,6 +1192,7 @@ def update_single_issue(
         issue_updater: IssueUpdater instance
         priority_manager: PriorityManager instance
         dry_run: If True, print actions without executing them
+        force: If True, bypass transition validation
     """
     # Get issue details
     try:
@@ -967,15 +1206,11 @@ def update_single_issue(
         return
     
     # Check current status
-    current_status = 'prioritized'  # Default
-    for label in issue.get('labels', []):
-        name = label.get('name', '')
-        if name.startswith('status:'):
-            current_status = name.replace('status:', '')
-            break
+    current_status = issue_updater.get_current_status(issue_number)
     
-    # Check for related PR
+    # Check for related PRs
     pr = pr_analyzer.get_pr_for_issue(issue_number)
+    open_pr = pr_analyzer.get_open_pr_for_issue(issue_number)
     
     # Check for commits
     commits = commit_analyzer.get_commits_for_issue(issue_number)
@@ -984,6 +1219,7 @@ def update_single_issue(
     new_status = current_status
     status_details = {}
     
+    # Status transition logic
     if current_status == 'prioritized' and commits:
         # Found commits but no PR - mark as in-progress
         new_status = 'in-progress'
@@ -992,7 +1228,15 @@ def update_single_issue(
             'message': commits[0]['message']
         }
     
-    elif current_status == 'in-progress' and pr and pr['state'] == 'closed':
+    elif current_status == 'in-progress' and open_pr:
+        # Open PR for the issue - mark as in-review
+        new_status = 'in-review'
+        status_details = {
+            'pr_number': open_pr['number'],
+            'pr_title': open_pr['title']
+        }
+    
+    elif (current_status == 'in-progress' or current_status == 'in-review') and pr and pr['state'] == 'closed':
         # PR closed, check if it fixed the issue
         for commit in commits:
             if commit['action'] in ('fixes', 'closes', 'resolves') and issue_number in commit['issue_refs']:
@@ -1014,13 +1258,22 @@ def update_single_issue(
     if new_status != current_status:
         logger.info(f"Updating issue #{issue_number} status from {current_status} to {new_status}")
         
+        # Validate transition
+        if not force and not issue_updater.validate_status_transition(current_status, new_status):
+            logger.warning(
+                f"Invalid status transition for issue #{issue_number}: "
+                f"{current_status} -> {new_status}. Use --force to override."
+            )
+            return
+        
         if not dry_run:
-            issue_updater.update_issue_status(issue_number, new_status)
+            issue_updater.update_issue_status(issue_number, new_status, force=force)
             issue_updater.add_status_comment(issue_number, new_status, status_details)
             if new_status == 'completed':
                 priority_manager.adjust_priorities_after_completion(issue_number)
         else:
-            logger.info("[DRY RUN] Would update issue status and add comment")
+            logger.info(f"[DRY RUN] Would update issue #{issue_number} status to {new_status}")
+            logger.info(f"[DRY RUN] Status details: {status_details}")
 
 
 if __name__ == '__main__':
