@@ -15,44 +15,47 @@ A lower priority (3) to avoid interfering with real work
 Feel free to try this command and let me know if you encounter any errors!
 
 Step 2: Make Changes and Reference the Issue
-Once you have your test issue (let's say it's issue #42 for this example), create a branch for it:
+Once you have your test issue (let's say it's issue #16 for this example), create a branch for it:
 
 bash
 CopyInsert in Terminal
-git checkout -b test/issue-42-workflow-test
+git checkout -b test/issue-16-workflow-test
 Now, make a simple change (or an empty commit) that references the issue:
 
 bash
 CopyInsert
-# Option 1: Empty commit with reference
-git commit --allow-empty -m "refs #42: Start testing automated workflow"
+# Make a small change to a file and commit
+git add tests/issue_test_log.txt
+git commit -m "refs #16: added issues_test_log with the instructions I'm following for this test"
+Note: When referencing an issue in your commit message, use one of the following formats:
+- refs #16
+- implements #16
+- fixes #16
+- closes #16
+Avoid using a colon after "refs", as it may cause the automation to fail.
 
-# Option 2: Make a small change to a file and commit
-# echo "# Test comment" >> README.md
-# git add README.md
-# git commit -m "refs #42: Add test comment to README"
 Then push your branch:
 
 bash
 CopyInsert in Terminal
-git push -u origin test/issue-42-workflow-test
+git push -u origin test/issue-16-workflow-test
 Step 3: Create a Pull Request
 Now create a pull request that references the issue:
 
 bash
 CopyInsert in Terminal
-gh pr create --title "Test PR for issue #42" --body "This PR tests the automated status updates. Closes #42" --base main
+gh pr create --title "Test PR for issue #16" --body "This PR tests the automated status updates. Closes #16" --base main
 This will:
 
-Create a PR referencing issue #42
-Include "Closes #42" to ensure the issue is closed when merged
+Create a PR referencing issue #16
+Include "Closes #16" to ensure the issue is closed when merged
 Set the base branch to main
 Step 4: Monitor Status Changes
 After each step, you can check the issue's status using:
 
 bash
 CopyInsert in Terminal
-gh issue view 42 --json labels
+gh issue view 16 --json labels
 You should see:
 
 After your first commit: status changes to "in-progress"
@@ -66,3 +69,38 @@ Comments added to the issue by the automation
 Status label changes on the issue
 Any errors that might appear
 Let me know if you encounter any issues or have questions as you go through these steps!
+
+## Issue Status Workflow Test - Run 2
+
+After making fixes to the workflow file and the commit message parser, we're running another test.
+
+### Step 1: Update the commit message parser
+Made the script more robust to handle variations in commit message format:
+- Updated regex patterns to allow optional colons after action keywords (e.g., `refs: #16`)
+- Added better spacing handling in the regex patterns
+
+### Step 2: Make test commit with proper format
+```bash
+git add scripts/issue_status_updater.py tests/issue_test_log.txt
+git commit -m "refs #16 Made commit message parser more robust"
+```
+
+### Step 3: Push changes
+```bash
+git push
+```
+
+### Step 4: Observe workflow run
+- Check GitHub Actions tab to see if the workflow runs successfully
+- Verify that the issue status is updated to "in-progress"
+
+### Notes:
+The parser now handles these formats:
+- `refs #16`
+- `refs: #16` 
+- `implements #16`
+- `implements: #16`
+- `fixes #16`
+- `fixes: #16`
+- `closes #16`
+- `closes: #16`

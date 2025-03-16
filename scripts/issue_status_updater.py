@@ -149,13 +149,14 @@ class CommitAnalyzer:
         issue_matches = re.findall(r'#(\d+)', message)
         issue_refs = [int(num) for num in issue_matches]
         
-        # Check for action keywords in priority order
+        # Check for action keywords in priority order with more flexible patterns
+        # that allow optional colons and spacing variations
         actions = {
-            'closes': r'closes\s+#\d+',
-            'fixes': r'fixes\s+#\d+',
-            'resolves': r'resolves\s+#\d+',
-            'implements': r'implements\s+#\d+',
-            'refs': r'refs\s+#\d+'
+            'closes': r'closes\s*:?\s*#\d+',
+            'fixes': r'fixes\s*:?\s*#\d+',
+            'resolves': r'resolves\s*:?\s*#\d+',
+            'implements': r'implements\s*:?\s*#\d+',
+            'refs': r'refs\s*:?\s*#\d+'
         }
         
         action = None
@@ -1029,69 +1030,143 @@ jobs:
 
 def main():
     """Run the issue status updater as a standalone script."""
-    parser = argparse.ArgumentParser(description='GitHub Issue Status Updater')
-    parser.add_argument('--owner', required=True, help='GitHub repository owner')
-    parser.add_argument('--repo', required=True, help='GitHub repository name')
+    parser = argparse.ArgumentParser(description='Update GitHub issue statuses based on git activity')
+    parser.add_argument('--owner', help='GitHub repository owner')
+    parser.add_argument('--repo', help='GitHub repository name')
     parser.add_argument('--issue', type=int, help='Specific issue number to update')
-    parser.add_argument('--create-workflow', action='store_true', help='Create GitHub Actions workflow file')
-    parser.add_argument('--scan-commits', type=int, default=10, help='Number of recent commits to scan')
+    parser.add_argument('--update-from-commit', help='Update status based on a specific commit message')
+    parser.add_argument('--update-from-pr', type=int, help='Update status based on a specific PR number')
+    parser.add_argument('--pr-action', choices=['opened', 'closed', 'merged'], help='PR action for status determination')
     parser.add_argument('--dry-run', action='store_true', help='Print actions without executing them')
-    parser.add_argument('--force', action='store_true', help='Force status updates even if transition is invalid')
-    
+    parser.add_argument('--force', action='store_true', help='Force status updates, bypassing validation')
     args = parser.parse_args()
     
-    # Create GitHub Actions workflow if requested
-    if args.create_workflow:
-        workflow = GitHubActionsWorkflow()
-        workflow.create_workflow_file()
-        return 0
+    # Determine owner and repo from environment if not provided
+    owner = args.owner
+    repo = args.repo
     
-    # Initialize analyzers
+    if not owner or not repo:
+        if 'GITHUB_REPOSITORY' in os.environ:
+            parts = os.environ['GITHUB_REPOSITORY'].split('/')
+            if len(parts) == 2:
+                if not owner:
+                    owner = parts[0]
+                if not repo:
+                    repo = parts[1]
+    
+    if not owner or not repo:
+        logger.error("GitHub repository owner and name are required")
+        return 1
+    
+    # Create analyzers and updaters
     commit_analyzer = CommitAnalyzer()
-    pr_analyzer = PullRequestAnalyzer(owner=args.owner, repo=args.repo)
+    pr_analyzer = PullRequestAnalyzer(owner=owner, repo=repo)
     test_analyzer = TestResultsAnalyzer()
-    issue_updater = IssueUpdater(owner=args.owner, repo=args.repo)
-    priority_manager = PriorityManager(owner=args.owner, repo=args.repo)
+    issue_updater = IssueUpdater(owner=owner, repo=repo)
+    priority_manager = PriorityManager(owner=owner, repo=repo)
     
-    # If a specific issue is provided, only update that one
-    if args.issue:
+    # If a specific commit message is provided, use it for updating
+    if args.update_from_commit:
+        if not args.issue:
+            logger.error("Issue number is required when updating from commit")
+            return 1
+        
+        parsed = commit_analyzer.parse_commit_message(args.update_from_commit)
+        if args.issue in parsed['issue_refs']:
+            # Determine status based on commit message keywords
+            action = parsed['action']
+            status = None
+            
+            if action == 'closes' or action == 'fixes' or action == 'resolves':
+                status = 'completed'
+            elif action == 'implements':
+                status = 'in-progress'
+            elif action == 'refs':
+                status = 'in-progress'
+            
+            if status:
+                details = {
+                    'commit': 'manual-update',
+                    'message': args.update_from_commit,
+                    'action': action
+                }
+                logger.info(f"Setting issue #{args.issue} to {status} based on commit message")
+                issue_updater.update_issue_status(args.issue, status, force=args.force)
+                issue_updater.add_status_comment(args.issue, status, details)
+            else:
+                logger.info(f"No status change needed for issue #{args.issue}")
+    
+    # If a specific PR is provided, use it for updating
+    elif args.update_from_pr:
+        if not args.issue:
+            logger.error("Issue number is required when updating from PR")
+            return 1
+        
+        if not args.pr_action:
+            logger.error("PR action is required when updating from PR")
+            return 1
+        
+        status = None
+        details = {
+            'pr_number': args.update_from_pr,
+            'pr_action': args.pr_action
+        }
+        
+        if args.pr_action == 'opened':
+            status = 'in-review'
+        elif args.pr_action == 'merged':
+            status = 'completed'
+        elif args.pr_action == 'closed':
+            # Revert to previous status (likely in-progress)
+            current = issue_updater.get_current_status(args.issue)
+            if current == 'in-review':
+                status = 'in-progress'
+        
+        if status:
+            logger.info(f"Setting issue #{args.issue} to {status} based on PR {args.update_from_pr} {args.pr_action}")
+            issue_updater.update_issue_status(args.issue, status, force=args.force)
+            issue_updater.add_status_comment(args.issue, status, details)
+    
+    # If a specific issue is provided without other options, update it based on general analysis
+    elif args.issue:
         update_single_issue(
             args.issue, 
             commit_analyzer, 
             pr_analyzer, 
             test_analyzer, 
-            issue_updater,
+            issue_updater, 
             priority_manager,
-            args.dry_run,
+            args.dry_run, 
             args.force
         )
-        return 0
     
-    # Otherwise, scan recent commits to find issues to update
-    commits = commit_analyzer.get_recent_commits(limit=args.scan_commits)
-    issue_numbers = set()
-    
-    # Collect issue numbers from commits
-    for commit in commits:
-        issue_numbers.update(commit['issue_refs'])
-    
-    # Also check PRs for referenced issues
-    open_prs = pr_analyzer.get_pull_requests(state='open')
-    for pr in open_prs:
-        issue_numbers.update(pr['linked_issues'])
-    
-    # Update each referenced issue
-    for issue_number in issue_numbers:
-        update_single_issue(
-            issue_number, 
-            commit_analyzer, 
-            pr_analyzer, 
-            test_analyzer, 
-            issue_updater,
-            priority_manager,
-            args.dry_run,
-            args.force
-        )
+    # Otherwise, update all recent issues
+    else:
+        # Get all open issues from GitHub
+        try:
+            issues = mcp5_list_issues(owner=owner, repo=repo, state='open')
+            logger.info(f"Found {len(issues)} open issues")
+            
+            # Update each issue
+            for issue in issues:
+                issue_number = issue.get('number')
+                if not issue_number:
+                    continue
+                
+                update_single_issue(
+                    issue_number, 
+                    commit_analyzer, 
+                    pr_analyzer, 
+                    test_analyzer, 
+                    issue_updater, 
+                    priority_manager,
+                    args.dry_run, 
+                    args.force
+                )
+                
+        except Exception as e:
+            logger.error(f"Error updating issues: {e}")
+            return 1
     
     return 0
 
