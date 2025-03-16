@@ -11,7 +11,7 @@
 - Install dependencies: `uv pip install -e ".[dev]"`
 - Run all tests: `uv run pytest`
 - Run single test: `uv run pytest tests/test_file.py::TestClass::test_function -v`
-- Run with coverage: `uv run pytest --cov=imap_mcp`
+- Run with coverage: `uv run pytest --cov`
 - Run server: `uv run python -m imap_mcp.server --config /path/to/config.yaml`
 - Development mode: `uv run python -m imap_mcp.server --dev`
 - One-line execution with dependencies: `uvx run -m imap_mcp.server --config /path/to/config.yaml`

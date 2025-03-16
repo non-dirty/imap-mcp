@@ -31,34 +31,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Import GitHub MCP functions if available
-try:
-    from mcp5_get_issue import mcp5_get_issue
-    from mcp5_update_issue import mcp5_update_issue
-    from mcp5_add_issue_comment import mcp5_add_issue_comment
-    from mcp5_list_issues import mcp5_list_issues
-    HAS_MCP = True
-except ImportError:
-    logger.warning("GitHub MCP modules not found, running in standalone mode")
-    HAS_MCP = False
-    # Define placeholder functions for testing without MCP
-    def mcp5_get_issue(**kwargs):
-        logger.info(f"Mock get_issue called with {kwargs}")
-        return {}
-        
-    def mcp5_update_issue(**kwargs):
-        logger.info(f"Mock update_issue called with {kwargs}")
-        return {}
-        
-    def mcp5_add_issue_comment(**kwargs):
-        logger.info(f"Mock add_issue_comment called with {kwargs}")
-        return {}
-        
-    def mcp5_list_issues(**kwargs):
-        logger.info(f"Mock list_issues called with {kwargs}")
-        return []
-
-
 # Define status transition constraints
 # This defines the valid status transitions
 VALID_STATUS_TRANSITIONS = {
@@ -72,6 +44,193 @@ VALID_STATUS_TRANSITIONS = {
 
 # Define the display order of statuses for visual representation
 STATUS_ORDER = ['prioritized', 'in-progress', 'in-review', 'completed', 'reopened', 'canceled']
+
+# GitHub CLI wrapper functions
+def gh_get_issue(owner: str, repo: str, issue_number: int) -> Dict:
+    """
+    Get issue details using GitHub CLI.
+    
+    Args:
+        owner: GitHub repository owner
+        repo: GitHub repository name
+        issue_number: Issue number
+        
+    Returns:
+        Dictionary with issue details
+    """
+    cmd = ["gh", "issue", "view", str(issue_number), "--json", "title,body,labels,state"]
+    if owner and repo:
+        repo_string = f"{owner}/{repo}"
+        cmd.extend(["-R", repo_string])
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return json.loads(result.stdout)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error getting issue #{issue_number}: {e}")
+        logger.error(f"Command output: {e.stderr}")
+        return {}
+    except json.JSONDecodeError as e:
+        logger.error(f"Error parsing GitHub CLI output: {e}")
+        return {}
+
+def gh_update_issue(owner: str, repo: str, issue_number: int, labels: List[str] = None, 
+                  state: str = None, title: str = None, body: str = None) -> Dict:
+    """
+    Update an issue using GitHub CLI.
+    
+    Args:
+        owner: GitHub repository owner
+        repo: GitHub repository name
+        issue_number: Issue number
+        labels: List of labels to set
+        state: State to set (open, closed)
+        title: New title
+        body: New body
+        
+    Returns:
+        Dictionary with issue details after update
+    """
+    cmd = ["gh", "issue", "edit", str(issue_number)]
+    if owner and repo:
+        repo_string = f"{owner}/{repo}"
+        cmd.extend(["-R", repo_string])
+    
+    if labels:
+        cmd.extend(["--add-label", ",".join(labels)])
+    if state:
+        cmd.extend(["--state", state])
+    if title:
+        cmd.extend(["--title", title])
+    if body:
+        cmd.extend(["--body", body])
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        logger.info(f"Updated issue #{issue_number}")
+        return gh_get_issue(owner, repo, issue_number)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error updating issue #{issue_number}: {e}")
+        logger.error(f"Command output: {e.stderr}")
+        return {}
+
+def gh_add_issue_comment(owner: str, repo: str, issue_number: int, body: str) -> Dict:
+    """
+    Add a comment to an issue using GitHub CLI.
+    
+    Args:
+        owner: GitHub repository owner
+        repo: GitHub repository name
+        issue_number: Issue number
+        body: Comment body
+        
+    Returns:
+        Dictionary with comment details
+    """
+    cmd = ["gh", "issue", "comment", str(issue_number), "--body", body]
+    if owner and repo:
+        repo_string = f"{owner}/{repo}"
+        cmd.extend(["-R", repo_string])
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        logger.info(f"Added comment to issue #{issue_number}")
+        return {"body": body}
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error adding comment to issue #{issue_number}: {e}")
+        logger.error(f"Command output: {e.stderr}")
+        return {}
+
+def gh_list_issues(owner: str, repo: str, state: str = "open", labels: List[str] = None) -> List[Dict]:
+    """
+    List issues using GitHub CLI.
+    
+    Args:
+        owner: GitHub repository owner
+        repo: GitHub repository name
+        state: Issue state (open, closed, all)
+        labels: Filter by labels
+        
+    Returns:
+        List of issue dictionaries
+    """
+    cmd = ["gh", "issue", "list", "--json", "number,title,body,labels,state"]
+    if owner and repo:
+        repo_string = f"{owner}/{repo}"
+        cmd.extend(["-R", repo_string])
+    
+    cmd.extend(["--state", state])
+    if labels:
+        cmd.extend(["--label", ",".join(labels)])
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return json.loads(result.stdout)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error listing issues: {e}")
+        logger.error(f"Command output: {e.stderr}")
+        return []
+    except json.JSONDecodeError as e:
+        logger.error(f"Error parsing GitHub CLI output: {e}")
+        return []
+
+def gh_list_prs(owner: str, repo: str, state: str = "open") -> List[Dict]:
+    """
+    List pull requests using GitHub CLI.
+    
+    Args:
+        owner: GitHub repository owner
+        repo: GitHub repository name
+        state: PR state (open, closed, all)
+        
+    Returns:
+        List of PR dictionaries
+    """
+    cmd = ["gh", "pr", "list", "--json", "number,title,body,state,closedAt,mergedAt"]
+    if owner and repo:
+        repo_string = f"{owner}/{repo}"
+        cmd.extend(["-R", repo_string])
+    
+    cmd.extend(["--state", state])
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return json.loads(result.stdout)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error listing PRs: {e}")
+        logger.error(f"Command output: {e.stderr}")
+        return []
+    except json.JSONDecodeError as e:
+        logger.error(f"Error parsing GitHub CLI output: {e}")
+        return []
+
+def gh_get_pr(owner: str, repo: str, pr_number: int) -> Dict:
+    """
+    Get PR details using GitHub CLI.
+    
+    Args:
+        owner: GitHub repository owner
+        repo: GitHub repository name
+        pr_number: PR number
+        
+    Returns:
+        Dictionary with PR details
+    """
+    cmd = ["gh", "pr", "view", str(pr_number), "--json", "number,title,body,state,closedAt,mergedAt"]
+    if owner and repo:
+        repo_string = f"{owner}/{repo}"
+        cmd.extend(["-R", repo_string])
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return json.loads(result.stdout)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error getting PR #{pr_number}: {e}")
+        logger.error(f"Command output: {e.stderr}")
+        return {}
+    except json.JSONDecodeError as e:
+        logger.error(f"Error parsing GitHub CLI output: {e}")
+        return {}
 
 class CommitAnalyzer:
     """Analyze git commits for issue references."""
@@ -210,45 +369,15 @@ class PullRequestAnalyzer:
             List of pull request dictionaries with additional metadata
         """
         try:
-            # Get issues labeled as PRs
-            issues = mcp5_list_issues(
-                owner=self.owner,
-                repo=self.repo,
-                state='all'  # Get all issues, we'll filter by PR type and state later
-            )
+            # Get PRs using GitHub CLI
+            prs = gh_list_prs(self.owner, self.repo, state)
             
-            # Filter for pull requests
-            prs = []
-            for issue in issues:
-                # Check if this is a PR by looking for the PR label
-                is_pr = False
-                for label in issue.get('labels', []):
-                    if label.get('name') == 'type:pr':
-                        is_pr = True
-                        break
-                
-                if not is_pr:
-                    continue
-                
-                # Filter by state if not 'all'
-                if state != 'all' and issue.get('state') != state:
-                    continue
-                
-                # Extract linked issues from title and body
-                title = issue.get('title', '')
-                body = issue.get('body', '')
+            # Add linked issues information to each PR
+            for pr in prs:
+                title = pr.get('title', '')
+                body = pr.get('body', '')
                 linked_issues = self.extract_linked_issues(title, body)
-                
-                prs.append({
-                    'number': issue.get('number'),
-                    'title': title,
-                    'body': body,
-                    'state': issue.get('state'),
-                    'linked_issues': linked_issues,
-                    'created_at': issue.get('created_at', ''),
-                    'updated_at': issue.get('updated_at', ''),
-                    'closed_at': issue.get('closed_at', '')
-                })
+                pr['linked_issues'] = linked_issues
             
             return prs
             
@@ -290,7 +419,7 @@ class PullRequestAnalyzer:
         prs = self.get_pull_requests(state='all')
         
         for pr in prs:
-            if issue_number in pr['linked_issues']:
+            if issue_number in pr.get('linked_issues', []):
                 return pr
         
         return None
@@ -308,7 +437,7 @@ class PullRequestAnalyzer:
         prs = self.get_pull_requests(state='open')
         
         for pr in prs:
-            if issue_number in pr['linked_issues']:
+            if issue_number in pr.get('linked_issues', []):
                 return pr
         
         return None
@@ -336,7 +465,7 @@ class TestResultsAnalyzer:
         
         try:
             # Get issue details to determine keywords
-            issue = mcp5_get_issue(
+            issue = gh_get_issue(
                 owner=os.environ.get('GITHUB_OWNER'),
                 repo=os.environ.get('GITHUB_REPO'),
                 issue_number=issue_number
@@ -548,7 +677,7 @@ class IssueUpdater:
         """
         try:
             # Get current issue details
-            issue = mcp5_get_issue(
+            issue = gh_get_issue(
                 owner=self.owner,
                 repo=self.repo,
                 issue_number=issue_number
@@ -599,7 +728,7 @@ class IssueUpdater:
         """
         try:
             # Get current issue details
-            issue = mcp5_get_issue(
+            issue = gh_get_issue(
                 owner=self.owner,
                 repo=self.repo,
                 issue_number=issue_number
@@ -630,7 +759,7 @@ class IssueUpdater:
             new_labels.append(f'status:{status}')
             
             # Update the issue
-            result = mcp5_update_issue(
+            result = gh_update_issue(
                 owner=self.owner,
                 repo=self.repo,
                 issue_number=issue_number,
@@ -708,7 +837,7 @@ class IssueUpdater:
             body += self._generate_status_timeline(status)
             
             # Add the comment
-            result = mcp5_add_issue_comment(
+            result = gh_add_issue_comment(
                 owner=self.owner,
                 repo=self.repo,
                 issue_number=issue_number,
@@ -771,7 +900,7 @@ class PriorityManager:
         """
         try:
             # Get all open issues
-            issues = mcp5_list_issues(
+            issues = gh_list_issues(
                 owner=self.owner,
                 repo=self.repo,
                 state='open'
@@ -880,7 +1009,7 @@ class PriorityManager:
         """
         try:
             # Get current issue details
-            issue = mcp5_get_issue(
+            issue = gh_get_issue(
                 owner=self.owner,
                 repo=self.repo,
                 issue_number=issue_number
@@ -896,7 +1025,7 @@ class PriorityManager:
             new_labels.append(f'priority:{new_priority}')
             
             # Update the issue
-            result = mcp5_update_issue(
+            result = gh_update_issue(
                 owner=self.owner,
                 repo=self.repo,
                 issue_number=issue_number,
@@ -928,7 +1057,7 @@ class PriorityManager:
             body += f"Priority updated from {old_priority} to {new_priority} due to the completion of a higher priority task.\n"
             
             # Add the comment
-            result = mcp5_add_issue_comment(
+            result = gh_add_issue_comment(
                 owner=self.owner,
                 repo=self.repo,
                 issue_number=issue_number,
@@ -1144,7 +1273,7 @@ def main():
     else:
         # Get all open issues from GitHub
         try:
-            issues = mcp5_list_issues(owner=owner, repo=repo, state='open')
+            issues = gh_list_issues(owner=owner, repo=repo, state='open')
             logger.info(f"Found {len(issues)} open issues")
             
             # Update each issue
@@ -1196,7 +1325,7 @@ def update_single_issue(
     """
     # Get issue details
     try:
-        issue = mcp5_get_issue(
+        issue = gh_get_issue(
             owner=issue_updater.owner,
             repo=issue_updater.repo,
             issue_number=issue_number
@@ -1207,13 +1336,29 @@ def update_single_issue(
     
     # Check current status
     current_status = issue_updater.get_current_status(issue_number)
+    logger.info(f"Issue #{issue_number} current status: {current_status}")
     
     # Check for related PRs
     pr = pr_analyzer.get_pr_for_issue(issue_number)
     open_pr = pr_analyzer.get_open_pr_for_issue(issue_number)
     
+    logger.info(f"Issue #{issue_number} PR status:")
+    logger.info(f"  - Any PR found: {pr is not None}")
+    if pr:
+        logger.info(f"  - PR state: {pr.get('state')}")
+        logger.info(f"  - PR number: {pr.get('number')}")
+        logger.info(f"  - PR title: {pr.get('title')}")
+    logger.info(f"  - Open PR found: {open_pr is not None}")
+    
     # Check for commits
     commits = commit_analyzer.get_commits_for_issue(issue_number)
+    logger.info(f"Issue #{issue_number} commits found: {len(commits)}")
+    for i, commit in enumerate(commits):
+        logger.info(f"  - Commit {i+1}:")
+        logger.info(f"    Hash: {commit.get('hash')}")
+        logger.info(f"    Message: {commit.get('message')}")
+        logger.info(f"    Action: {commit.get('action')}")
+        logger.info(f"    Issue refs: {commit.get('issue_refs')}")
     
     # Determine new status
     new_status = current_status
@@ -1221,7 +1366,7 @@ def update_single_issue(
     
     # Status transition logic
     if current_status == 'prioritized' and commits:
-        # Found commits but no PR - mark as in-progress
+        logger.info(f"Transition condition met: 'prioritized' -> 'in-progress' (commits found)")
         new_status = 'in-progress'
         status_details = {
             'commit': commits[0]['hash'],
@@ -1229,7 +1374,7 @@ def update_single_issue(
         }
     
     elif current_status == 'in-progress' and open_pr:
-        # Open PR for the issue - mark as in-review
+        logger.info(f"Transition condition met: 'in-progress' -> 'in-review' (open PR found)")
         new_status = 'in-review'
         status_details = {
             'pr_number': open_pr['number'],
@@ -1237,14 +1382,29 @@ def update_single_issue(
         }
     
     elif (current_status == 'in-progress' or current_status == 'in-review') and pr and pr['state'] == 'closed':
+        logger.info(f"Checking transition conditions for 'in-progress/in-review' -> 'completed'")
+        logger.info(f"  - Current status: {current_status}")
+        logger.info(f"  - PR found and closed: {pr is not None and pr.get('state') == 'closed'}")
+        
         # PR closed, check if it fixed the issue
+        found_completing_commit = False
         for commit in commits:
-            if commit['action'] in ('fixes', 'closes', 'resolves') and issue_number in commit['issue_refs']:
+            action = commit.get('action')
+            issue_refs = commit.get('issue_refs', [])
+            logger.info(f"  - Analyzing commit: {commit.get('hash')}")
+            logger.info(f"    Action: {action}")
+            logger.info(f"    Issue refs: {issue_refs}")
+            logger.info(f"    Is completing commit: {action in ('fixes', 'closes', 'resolves') and issue_number in issue_refs}")
+            
+            if action in ('fixes', 'closes', 'resolves') and issue_number in issue_refs:
+                found_completing_commit = True
                 # Run tests to confirm
                 test_results = test_analyzer.run_tests_for_issue(issue_number)
                 coverage = test_analyzer.get_coverage_for_issue(issue_number)
                 
+                logger.info(f"  - Test results: {test_results}")
                 if test_results['success']:
+                    logger.info(f"Transition condition met: '{current_status}' -> 'completed' (PR closed with completing commit and tests pass)")
                     new_status = 'completed'
                     status_details = {
                         'test_results': {
@@ -1253,6 +1413,32 @@ def update_single_issue(
                         },
                         'pr_number': pr['number']
                     }
+        
+        if not found_completing_commit:
+            logger.info(f"No completing commit found (with fixes/closes/resolves action). Checking PR title/body...")
+            # Also check PR title/body for closing keywords
+            pr_title = pr.get('title', '').lower()
+            pr_body = pr.get('body', '').lower()
+            
+            closing_keywords = ['fixes #', 'closes #', 'resolves #']
+            for keyword in closing_keywords:
+                for text in [pr_title, pr_body]:
+                    if f"{keyword}{issue_number}" in text.lower().replace(' ', ''):
+                        logger.info(f"Found completing keyword in PR: '{keyword}{issue_number}'")
+                        # Run tests to confirm
+                        test_results = test_analyzer.run_tests_for_issue(issue_number)
+                        coverage = test_analyzer.get_coverage_for_issue(issue_number)
+                        
+                        if test_results['success']:
+                            logger.info(f"Transition condition met: '{current_status}' -> 'completed' (PR contains completing keyword and tests pass)")
+                            new_status = 'completed'
+                            status_details = {
+                                'test_results': {
+                                    'success': True,
+                                    'coverage': coverage.get('coverage', 0.0)
+                                },
+                                'pr_number': pr['number']
+                            }
     
     # Update issue if status changed
     if new_status != current_status:
@@ -1274,6 +1460,8 @@ def update_single_issue(
         else:
             logger.info(f"[DRY RUN] Would update issue #{issue_number} status to {new_status}")
             logger.info(f"[DRY RUN] Status details: {status_details}")
+    else:
+        logger.info(f"No status change needed for issue #{issue_number}: remains '{current_status}'")
 
 
 if __name__ == '__main__':

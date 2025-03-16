@@ -122,63 +122,36 @@ The helper script complements the automated GitHub Actions workflow by:
 
 For detailed usage instructions, see [ISSUE_HELPER_USAGE.md](./ISSUE_HELPER_USAGE.md).
 
-## Command Reference for GitHub Issues
-
-### Viewing Issues
-```bash
-# List all open issues
-gh issue list
-
-# View specific issue
-gh issue view ISSUE_NUMBER
-
-# Filter issues by label
-gh issue list --label "priority:1"
-gh issue list --label "status:in-progress"
-
-# Search issues
-gh issue list --search "OAuth"
-```
-
-### Creating Issues
-```bash
-# Create interactively (recommended)
-gh issue create
-
-# Create with parameters
-gh issue create --title "Feature Title" --body "Description" --label "priority:X" --label "status:prioritized"
-```
-
-### Manipulating Issues
-```bash
-# Change status
-gh issue edit ISSUE_NUMBER --add-label "status:in-progress" --remove-label "status:prioritized"
-
-# Change priority
-gh issue edit ISSUE_NUMBER --add-label "priority:1" --remove-label "priority:2"
-
-# Close issue
-gh issue close ISSUE_NUMBER
-```
-
-### Pull Requests
-```bash
-# List pull requests
-gh pr list
-
-# Create pull request
-gh pr create --title "Title" --body "Closes #ISSUE_NUMBER"
-
-# View pull request
-gh pr view PR_NUMBER
-
-# Merge pull request
-gh pr merge PR_NUMBER
-```
-
 ## Automated Status Updates
 
 The repository includes a GitHub Actions workflow that automatically updates issue statuses based on git activity and pull request events. This ensures that issue status labels are kept up-to-date throughout the development process.
+
+### CLI-Based Issue Management
+
+The issue management system uses GitHub CLI (`gh`) commands directly, which provides several advantages:
+
+1. **Local Authentication**: Leverages your existing GitHub authentication on the command line
+2. **No API Keys Required**: No need to manage separate API credentials 
+3. **Consistent Experience**: Same commands work locally and in GitHub Actions
+4. **Autonomous Development Support**: AI assistants can use the same CLI tools as human developers
+
+### Using Issue Management Locally
+
+To use the issue management scripts locally:
+
+```bash
+# Update status for a specific issue
+python scripts/issue_status_updater.py --owner <repo-owner> --repo <repo-name> --issue <issue-number>
+
+# Start work on an issue (creates branch, updates status)
+python scripts/issue_helper.py start <issue-number>
+
+# Complete an issue (creates PR, links issue)
+python scripts/issue_helper.py complete <issue-number>
+
+# Check current status of an issue
+python scripts/issue_helper.py check <issue-number>
+```
 
 ### Status Transition Rules
 
