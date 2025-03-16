@@ -60,17 +60,14 @@ config.yaml
 # Exclude all files in resources by default
 resources/
 
-# But include specific markdown files for collaboration
-!resources/*.md
-!resources/diagrams/
 
 # Exclude any sensitive files that might be in resources even if they match above patterns
-resources/*secret*
-resources/*token*
-resources/*key*
-resources/*credential*
-resources/*password*
-resources/*auth*
+*secret*
+*token*
+*key*
+*credential*
+*password*
+*auth*
 
 # Secret Design Ideas
 # reference/

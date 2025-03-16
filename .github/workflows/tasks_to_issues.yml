@@ -1,0 +1,59 @@
+name: Tasks to Issues Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no actual issue creation)'
+        type: boolean
+        default: true
+        required: true
+      coverage_threshold:
+        description: 'Coverage threshold percentage'
+        type: number
+        default: 90.0
+        required: true
+
+jobs:
+  migrate-tasks:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov uv
+          uv pip install -r requirements.txt
+      
+      - name: Run migration script
+        run: |
+          python scripts/tasks_to_issues.py \
+            --repo-owner ${{ github.repository_owner }} \
+            --repo-name ${{ github.event.repository.name }} \
+            --coverage-threshold ${{ github.event.inputs.coverage_threshold }} \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Create PR for TASKS.md update
+        if: ${{ github.event.inputs.dry_run == 'false' }}
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: 'Update TASKS.md with GitHub Issues transition information'
+          title: 'Update TASKS.md with GitHub Issues transition information'
+          body: |
+            This PR updates TASKS.md with information about the transition to GitHub Issues.
+            
+            - Adds GitHub Issues Transition section
+            - Documents the parallel workflow during transition
+            - Explains how to use GitHub Issues for task tracking
+          branch: 'tasks-to-issues-migration'
+          base: main

@@ -13,7 +13,6 @@ When working on a task from this list, follow these steps:
 
 2. **Task Status Update**:
    - Update the task's status in the Task Tracker table to "started"
-   - Commit this change before beginning implementation
 
 3. **Test-Driven Development**:
    - Write test specifications first before implementation
@@ -21,30 +20,102 @@ When working on a task from this list, follow these steps:
    - Implement the feature until all tests pass
    - Refactor the code while ensuring tests continue to pass
    - Run the full test suite to check for regressions
+   - Run test coverage to check for code coverage of at least 90%
+   - Write new tests to increase code coverage to at least 90%
+   - Run the full test suite to check for regressions
+   - Run test coverage to check for code coverage of at least 90%
 
 4. **Documentation**:
    - Update docstrings and comments in the implementation
-   - Add any necessary examples or usage instructions to README.md
-   - If adding new commands or processes, update CLAUDE.md accordingly
-
+   - Add or update README.md as appropriate
+   - Add or update INSTALLATION.md as appropriate
+   - Add or update CLAUDE.md as appropriate
+   
 5. **Task Completion**:
    - Change the task's status to "completed" in the Task Tracker
-   - Change the task's priority to "-" in the Task Tracker (indicating no priority for completed tasks)
    - Move the task details from TASKS.md to TASKS_COMPLETED.md
    - Add a detailed summary of what was accomplished under the task in TASKS_COMPLETED.md
    - Do NOT renumber the tasks in TASKS.md - maintain their original numbers
+   - Clean up the TASKS.md by removing completed tasks
+
 
 6. **Priority Reassessment**:
    - After completing a task, reassess priorities for remaining tasks
-   - Update the priority numbers in the Task Tracker as appropriate
-   - Ensure at least one remaining task has priority 1
-   - Priorities should be sequential starting from 1 with no gaps
-   - Document the reasoning for any priority changes in a git commit message
+   - Update the priority numbers in the Task Tracker as appropriate to ensure at least one remaining task has priority 1
+   - Priorities should be sequential starting from 1, but gaps are allowed to minimize updates to the TASKS.md file
 
 7. **Commit Changes**:
    - Create a git commit with a descriptive message
    - Include the task number and name in the commit message
    - Push the changes to GitHub
+
+
+
+## GitHub Issues Transition
+
+
+### GitHub Issues Transition Workflow
+
+The project is transitioning from using TASKS.md to GitHub Issues for task tracking. During the transition period, both systems will be used in parallel, with the following guidelines:
+
+#### Current Status
+
+* All existing tasks have been migrated to GitHub Issues
+* New tasks should be created as GitHub Issues
+* TASKS.md will be maintained until the transition is complete
+* Code coverage tasks for modules below 90.0% have been created with high priority
+
+#### Using GitHub Issues
+
+1. **Viewing Tasks**: Visit the [Issues page](https://github.com/your-github-username/imap-mcp/issues) to see all open tasks
+2. **Task Priority**: Priority is indicated by the `priority:X` label
+3. **Task Status**: Status is shown with the `status:X` label
+4. **Starting a Task**: Assign the issue to yourself and move it to "In Progress" in the project board
+5. **Completing a Task**: Close the issue when the task is done (PR merged)
+
+#### Final Transition
+
+A task has been created to complete the transition by:
+1. Updating TASKS.md to keep methodology sections but removing task listings
+2. Documenting GitHub Issues workflow in a new WORKFLOW.md file
+3. Updating all related documentation to reference GitHub Issues
+
+This transition will improve collaboration, automation, and integration with development activities.
+
+
+
+## GitHub Issues Transition
+
+
+### GitHub Issues Transition Workflow
+
+The project is transitioning from using TASKS.md to GitHub Issues for task tracking. During the transition period, both systems will be used in parallel, with the following guidelines:
+
+#### Current Status
+
+* All existing tasks have been migrated to GitHub Issues
+* New tasks should be created as GitHub Issues
+* TASKS.md will be maintained until the transition is complete
+* Code coverage tasks for modules below 90.0% have been created with high priority
+
+#### Using GitHub Issues
+
+1. **Viewing Tasks**: Visit the [Issues page](https://github.com/imap-mcp-owner/imap-mcp/issues) to see all open tasks
+2. **Task Priority**: Priority is indicated by the `priority:X` label
+3. **Task Status**: Status is shown with the `status:X` label
+4. **Starting a Task**: Assign the issue to yourself and move it to "In Progress" in the project board
+5. **Completing a Task**: Close the issue when the task is done (PR merged)
+
+#### Final Transition
+
+A task has been created to complete the transition by:
+1. Updating TASKS.md to keep methodology sections but removing task listings
+2. Documenting GitHub Issues workflow in a new WORKFLOW.md file
+3. Updating all related documentation to reference GitHub Issues
+
+This transition will improve collaboration, automation, and integration with development activities.
+
+
 
 ## Task Status Definitions
 
@@ -63,25 +134,29 @@ Tasks in the Task Tracker can have the following statuses:
 For each task:
 
 1. **Write test specifications first** - Define what successful implementation looks like
-2. **Create failing tests** - Implement tests that verify the desired functionality (which should fail initially)
+2. **Create failing tests** - Implement tests that verify the desired functionality (which often fail initially)
 3. **Implement the feature** - Write code until all tests pass
 4. **Refactor** - Clean up the implementation without breaking tests
-5. **Verify** - Run all existing tests to ensure no regression
+5. **Verify** - Run all existing tests (with coverage report) to ensure no regression, fix broken tests
+6. **Test Coverage** - Check for code coverage of at least 90%
+7. **Add new tests** - Write new tests to increase code coverage to at least 90%
+8. **Run full test suite** - Run all existing tests to ensure no regression
+9. **Run test coverage** - Run test coverage to check for code coverage of at least 90%
 
 ### Running Tests
 
 ```bash
 # Run all tests
-pytest
+uv run -m pytest
 
-# Run tests for a specific module
-pytest tests/test_module_name.py
+# Run tests for a specific module (add -v for verbose output)
+uv run -m pytest tests/test_module_name.py
 
 # Run tests with coverage report
-pytest --cov=imap_mcp
+uv run -m pytest --cov=imap_mcp
 
 # Run tests in verbose mode
-pytest -v
+uv run -m pytest -v
 ```
 
 ## Implementation Tasks
@@ -90,48 +165,69 @@ pytest -v
 
 | Priority | Task # | Status      | Description                                      |
 |----------|--------|-------------|--------------------------------------------------|
-| -        | 20     | completed   | Set up Google Cloud Project for OAuth2           |
-| 2        | 21     | prioritized | Implement Gmail OAuth2 Authentication Flow       |
+| 5        | 21     | prioritized | Implement Gmail OAuth2 Authentication Flow       |
 | 3        | 22     | prioritized | Implement Secure Token Storage                   |
 | 4        | 23     | prioritized | Test Basic IMAP Folder Listing with OAuth2       |
-| -        | 1      | completed   | Expand Core IMAP Client Tests                    |
-| -        | 2      | completed   | Implement Config Module Tests                    |
-| -        | 3      | completed   | Implement MCP Resources Tests                    |
-| -        | 4      | completed   | Implement MCP Tools Tests                        |
-| -        | 5      | completed   | Implement Server Tests                           |
-| 5        | 6      | prioritized | Add Email Data Models for Learning Layer         |
-| 6        | 7      | prioritized | Implement Basic Action Tracking                  |
-| 7        | 8      | prioritized | Implement Feature Extraction                     |
-| 8        | 9      | prioritized | Implement Basic Prediction Model                 |
-| 9        | 10     | prioritized | Integrate Learning Components                    |
 | 10       | 11     | prioritized | Implement Email Processing Workflow - States     |
 | 11       | 12     | prioritized | Implement Email Processing Workflow - Actions    |
 | 12       | 13     | prioritized | Implement Email Processing Workflow - User       |
-| 13       | 14     | prioritized | Integrate Workflow Components                    |
-| 14       | 15     | prioritized | Implement Multi-Account Foundation               |
-| 15       | 16     | prioritized | Implement Account Management                     |
-| 16       | 17     | prioritized | Integrate Multi-Account Support                  |
 | 17       | 18     | prioritized | Create Documentation Base                        |
 | 18       | 19     | prioritized | Create Integration Tests with Real Account       |
 | 19       | 25     | prioritized | Fix Virtual Environment Duplication Issue        |
-| -        | 24     | proposed    | Create Task Generation Tool                      |
-| -        | 26     | proposed    | Implement Automated Task Status Updates          |
-| -        | 27     | proposed    | Develop Task Dependency Visualization            |
+| 1        | 24     | completed   | Transition to Git Issues from tasks.md           |
+| 2        | 26     | completed   | Implement Automated Task Status Updates          |
 
 ### Process Improvement Tasks
 
-#### 24. Create Task Generation Tool
+#### 24. Transition to Git Issues from tasks.md
 
-**Task Name**: Develop a script to automate task creation and management
+**Task Name**: Integrate Git issues (needs rewrite and breakdown)
 
 **Description**:
-Create a command-line tool that can generate new task entries for the TASKS.md file following the established format. This tool would:
-- Generate task numbers automatically based on the highest existing number
-- Create task entries with required sections (Task Name, Test Specifications, Implementation Steps, TDD Process)
-- Allow for task templates to ensure consistency
-- Update the Task Tracker table automatically
+Leverage Git issues to manage tasks lifecycle currently managed by TASKS.md, keep TASKS.md for until the transition is complete:
+- create issues in the Git repository from tasks in TASKS.md
+- update TASKS.md with the new workflow for using Git issues in addition to TASKS.md and TASKS_COMPLETED.md (parallel usage phase of the transition)
+- run the code coverage and make a task in github issues to improve the code coverage for each module that is less than 90% coverage
+- write a new task to finish the transition and sunset the tasks.md file (just the task list and priority sections, keeping the methodology and process sections)
+- prioritize the new test code coverage tasks as the highest priority and set the priority of the finish transition task to 10
 
-This would improve efficiency when creating new tasks and ensure consistent formatting.
+**Test Specifications**:
+1. Test task extraction from TASKS.md
+   - Test parsing of task table
+   - Test extraction of detailed task descriptions
+   - Test sorting by priority
+2. Test GitHub issue creation
+   - Test creation of issues with appropriate metadata
+   - Test handling of task details as issue body
+   - Test label creation for priority and status
+3. Test code coverage reporting
+   - Test identification of modules below threshold
+   - Test generation of coverage improvement tasks
+4. Test workflow documentation updates
+   - Test updating TASKS.md with transition information
+   - Test parallel workflow documentation
+
+**Implementation Steps**:
+1. Create a tasks_to_issues.py script with:
+   - TaskParser class to extract tasks from TASKS.md
+   - GitHubIssueCreator class to create GitHub issues
+   - CoverageReporter class to generate coverage tasks
+   - WorkflowUpdater class to update documentation
+2. Create test_tasks_to_issues.py for TDD verification
+3. Create GitHub workflow to run the migration script
+4. Create GITHUB_ISSUES_WORKFLOW.md to document the new process
+5. Update TASKS.md with the transition plan
+6. Run the migration script to create initial issues
+7. Create PR template linking commits to issues
+8. Document the new workflow for the team
+
+**Expected Outcome**:
+- All existing tasks migrated to GitHub Issues
+- TASKS.md updated with transition information
+- GitHub Project board set up with automated workflows
+- Coverage tasks created for modules below threshold
+- Clear documentation of the new workflow
+- PR template and commit message conventions established
 
 #### 26. Implement Automated Task Status Updates
 
@@ -146,239 +242,89 @@ Develop a Git hook or workflow tool that automatically updates task statuses bas
 
 This would reduce manual maintenance of the task tracker and ensure it stays up-to-date.
 
-#### 27. Develop Task Dependency Visualization
+#### 27. Set Up GitHub Project Board
 
-**Task Name**: Create visualization tools for task dependencies
+**Task Name**: Create and configure GitHub Project board
 
 **Description**:
-Implement a tool that can:
-- Parse the TASKS.md file to identify task dependencies
-- Generate a visual dependency graph showing which tasks depend on others
-- Help identify the optimal order for task implementation
-- Flag potential bottlenecks or critical path tasks
+Set up a GitHub Project board to visualize and manage tasks:
+- Create a project board with appropriate columns (Backlog, To Do, In Progress, Review, Done)
+- Configure automated workflows in the project board
+- Link existing issues to the project board
+- Set up custom fields for priority, status, and effort estimation
+- Document the project board usage in the GitHub Issues workflow
 
-This visualization would help with planning and prioritization, making it easier to identify which tasks should be tackled next for maximum efficiency.
+This provides visual task management and leverages GitHub's built-in automation features.
 
-### 3. Implement MCP Resources Tests
+#### 28. Create Issue Templates
 
-**Task Name**: Test and enhance MCP resources
+**Task Name**: Implement standardized GitHub issue templates
 
-**Test Specifications**:
-- Test email resource representation
-- Test folder resource representation
-- Test resource serialization/deserialization
-- Test resource validation
-- Test resource error handling
+**Description**:
+Create templates for different types of issues to ensure consistent information:
+- Create a feature task template with sections for test specifications, implementation steps, and expected outcome
+- Create a bug template with reproduction steps, expected vs. actual behavior
+- Create a documentation task template
+- Create a test improvement template for test coverage tasks
+- Add appropriate labels to be automatically applied to each template type
 
-**Implementation Steps**:
-```
-1. Create test_resources.py with test cases covering:
-   - Resource initialization
-   - Resource serialization/deserialization
-   - Resource validation
-   - Resource error handling
-2. Mock necessary dependencies
-```
+This standardizes task creation and ensures all necessary information is captured.
 
-**TDD Process**:
-1. Run `pytest tests/test_resources.py -v` to see all tests fail
-2. Implement or fix resource functionality in resources.py
-3. Run tests again until all pass
-4. Run `pytest --cov=imap_mcp.resources` to verify coverage
+#### 29. Implement GitHub Actions for Task Automation
 
-### 4. Implement MCP Tools Tests
+**Task Name**: Set up GitHub Actions workflows for task automation
 
-**Task Name**: Test and enhance MCP tools
+**Description**:
+Create GitHub Actions workflows to automate task management:
+- Set up workflow to automatically label and categorize new issues
+- Create workflow to update issue status based on PR activity
+- Implement workflow to generate and assign test coverage tasks
+- Create workflow to notify on stale issues or PRs
+- Document the GitHub Actions workflows and triggers
 
-**Test Specifications**:
-- Test email browsing tools
-- Test email action tools
-- Test search tools
-- Test tool parameter validation
-- Test tool error handling
+This provides automation beyond what's available in GitHub Projects natively.
 
-**Implementation Steps**:
-```
-1. Create test_tools.py with test cases covering:
-   - Tool initialization
-   - Tool execution with various parameters
-   - Tool validation
-   - Tool error handling
-2. Mock necessary dependencies
-```
+#### 30. Implement Task Dependency Visualization
 
-**TDD Process**:
-1. Run `pytest tests/test_tools.py -v` to see all tests fail
-2. Implement or fix tool functionality in tools.py
-3. Run tests again until all pass
-4. Run `pytest --cov=imap_mcp.tools` to verify coverage
+**Task Name**: Create task dependency visualization and management
 
-### 5. Implement Server Tests
+**Description**:
+Build a tool to visualize and manage dependencies between tasks:
+- Create a graph visualization of task dependencies
+- Allow tagging issues as blockers or dependencies
+- Implement a tool to ensure tasks aren't worked on before their dependencies
+- Add an automated check for circular dependencies
+- Generate reports on the critical path of dependencies
 
-**Task Name**: Test and enhance server functionality
+This helps prioritize work and prevents working on tasks that have unfinished dependencies.
 
-**Test Specifications**:
-- Test server initialization
-- Test server lifecycle management
-- Test server error handling
-- Test CLI argument parsing
-- Test server integration with resources and tools
+#### 31. Implement AI-Assisted Task Prioritization
 
-**Implementation Steps**:
-```
-1. Create test_server.py with test cases covering:
-   - Server initialization
-   - Lifecycle management
-   - CLI argument parsing
-   - Error handling
-2. Mock necessary dependencies
-```
+**Task Name**: Create AI-driven task priority optimization
 
-**TDD Process**:
-1. Run `pytest tests/test_server.py -v` to see all tests fail
-2. Implement or fix server functionality in server.py
-3. Run tests again until all pass
-4. Run `pytest --cov=imap_mcp.server` to verify coverage
+**Description**:
+Develop a system for AI to analyze and suggest task priorities:
+- Create a GitHub Action to periodically analyze open issues
+- Implement logic to suggest priority changes based on dependencies and project goals
+- Set up notification system for priority change suggestions
+- Allow for manual approval of AI-suggested priorities
+- Track metrics on how priority adjustments impact project velocity
 
-### 6. Add Email Data Models for Learning Layer
+This leverages AI to optimize the development process and ensure work is done in the most efficient order.
 
-**Task Name**: Implement email data models for learning
+#### 32. Implement Commit-Issue Linking System
 
-**Test Specifications**:
-- Test email feature extraction model
-- Test user action model
-- Test email categorization model
-- Test model serialization/deserialization
-- Test model validation
+**Task Name**: Create system for linking commits to issues
 
-**Implementation Steps**:
-```
-1. Create test_learning_models.py with test cases covering:
-   - Email feature extraction
-   - User action representations
-   - Email categorization
-   - Model serialization/deserialization
-   - Model validation
-2. Use realistic email examples for tests
-```
+**Description**:
+Establish a standardized system for connecting code changes to tasks:
+- Document keyword patterns for referencing issues in commits and PRs
+- Create GitHub Action to validate commit messages for proper issue references
+- Set up automated status updates based on commit references
+- Implement PR template with issue reference section
+- Create dashboard for tracking issue-to-code traceability
 
-**TDD Process**:
-1. Run `pytest tests/test_learning_models.py -v` to see all tests fail
-2. Create learning_models.py implementing the required models
-3. Run tests again until all pass
-4. Run `pytest --cov=imap_mcp.learning_models` to verify coverage
-
-### 7. Implement Basic Action Tracking
-
-**Task Name**: Implement action tracking functionality
-
-**Test Specifications**:
-- Test recording user actions on emails
-- Test storing action history
-- Test retrieving action history
-- Test serialization/deserialization of action data
-- Test storage and persistence of action data
-
-**Implementation Steps**:
-```
-1. Create test_action_tracker.py with test cases covering:
-   - Recording various user actions (read, reply, archive, etc.)
-   - Storing action history
-   - Retrieving action history with filters
-   - Action data persistence
-2. Use temporary storage for tests
-```
-
-**TDD Process**:
-1. Run `pytest tests/test_action_tracker.py -v` to see all tests fail
-2. Create action_tracker.py implementing the required functionality
-3. Run tests again until all pass
-4. Run `pytest --cov=imap_mcp.action_tracker` to verify coverage
-
-### 8. Implement Feature Extraction
-
-**Task Name**: Implement email feature extraction
-
-**Test Specifications**:
-- Test extracting sender features
-- Test extracting content features
-- Test extracting metadata features
-- Test extracting time-based features
-- Test feature normalization and preprocessing
-
-**Implementation Steps**:
-```
-1. Create test_feature_extraction.py with test cases covering:
-   - Sender feature extraction (domain, frequency, etc.)
-   - Content feature extraction (keywords, length, etc.)
-   - Metadata feature extraction (attachments, importance, etc.)
-   - Time-based feature extraction (time of day, day of week, etc.)
-   - Feature normalization
-2. Use diverse email examples for testing
-```
-
-**TDD Process**:
-1. Run `pytest tests/test_feature_extraction.py -v` to see all tests fail
-2. Create feature_extraction.py implementing the required functionality
-3. Run tests again until all pass
-4. Run `pytest --cov=imap_mcp.feature_extraction` to verify coverage
-
-### 9. Implement Basic Prediction Model
-
-**Task Name**: Implement email action prediction
-
-**Test Specifications**:
-- Test prediction model initialization
-- Test training with action history
-- Test making predictions for new emails
-- Test prediction confidence scoring
-- Test model persistence and loading
-
-**Implementation Steps**:
-```
-1. Create test_prediction_model.py with test cases covering:
-   - Model initialization with different parameters
-   - Training with historical actions
-   - Prediction generation for new emails
-   - Confidence scoring
-   - Model persistence and loading
-2. Use synthetic training data for tests
-```
-
-**TDD Process**:
-1. Run `pytest tests/test_prediction_model.py -v` to see all tests fail
-2. Create prediction_model.py implementing a simple prediction model
-3. Run tests again until all pass
-4. Run `pytest --cov=imap_mcp.prediction_model` to verify coverage
-
-### 10. Integrate Learning Components
-
-**Task Name**: Integrate all learning components
-
-**Test Specifications**:
-- Test end-to-end learning process
-- Test combining all learning components
-- Test integration with MCP resources and tools
-- Test learning initialization from the server
-- Test persistence across server restarts
-
-**Implementation Steps**:
-```
-1. Create test_learning_integration.py with test cases covering:
-   - End-to-end learning process
-   - Component interaction
-   - Resource and tool integration
-   - Server initialization
-   - Persistence testing
-2. Mock necessary dependencies
-```
-
-**TDD Process**:
-1. Run `pytest tests/test_learning_integration.py -v` to see all tests fail
-2. Create learning.py integrating all learning components
-3. Update server.py, resources.py, and tools.py to integrate with learning.py
-4. Run tests again until all pass
-5. Run `pytest --cov=imap_mcp.learning` to verify coverage
+This connects code changes directly to tasks and automates status tracking.
 
 ### 20. Set up Google Cloud Project for OAuth2
 
@@ -463,203 +409,6 @@ This visualization would help with planning and prioritization, making it easier
 3. Implement the integration functionality
 4. Run tests with valid credentials to verify implementation
 
-### 11. Implement Email Processing Workflow - States
-
-**Task Name**: Implement email processing workflow states
-
-**Test Specifications**:
-- Test workflow state definitions
-- Test state transitions
-- Test state persistence
-- Test state validation
-- Test state serialization/deserialization
-
-**Implementation Steps**:
-```
-1. Create test_workflow_states.py with test cases covering:
-   - State definitions (new, reviewing, actioned, etc.)
-   - State transitions (valid and invalid)
-   - State persistence
-   - State validation
-   - State serialization/deserialization
-2. Cover both valid and invalid state transitions
-```
-
-**TDD Process**:
-1. Run `pytest tests/test_workflow_states.py -v` to see all tests fail
-2. Create workflow_states.py implementing the required functionality
-3. Run tests again until all pass
-4. Run `pytest --cov=imap_mcp.workflow_states` to verify coverage
-
-### 12. Implement Email Processing Workflow - Actions
-
-**Task Name**: Implement email processing workflow actions
-
-**Test Specifications**:
-- Test action definitions
-- Test action execution
-- Test action validation
-- Test action consequences on states
-- Test action history tracking
-
-**Implementation Steps**:
-```
-1. Create test_workflow_actions.py with test cases covering:
-   - Action definitions (read, reply, archive, etc.)
-   - Action execution
-   - Action validation
-   - Action state consequences
-   - Action history tracking
-2. Test with various email scenarios
-```
-
-**TDD Process**:
-1. Run `pytest tests/test_workflow_actions.py -v` to see all tests fail
-2. Create workflow_actions.py implementing the required functionality
-3. Run tests again until all pass
-4. Run `pytest --cov=imap_mcp.workflow_actions` to verify coverage
-
-### 13. Implement Email Processing Workflow - User Interaction
-
-**Task Name**: Implement user interaction patterns
-
-**Test Specifications**:
-- Test different interaction patterns
-- Test question prompts
-- Test user response handling
-- Test interaction history
-- Test adaptations based on learning
-
-**Implementation Steps**:
-```
-1. Create test_user_interaction.py with test cases covering:
-   - Interaction patterns
-   - Question generation
-   - Response handling
-   - Interaction history
-   - Learning-based adaptations
-2. Mock user responses for testing
-```
-
-**TDD Process**:
-1. Run `pytest tests/test_user_interaction.py -v` to see all tests fail
-2. Create user_interaction.py implementing the required functionality
-3. Run tests again until all pass
-4. Run `pytest --cov=imap_mcp.user_interaction` to verify coverage
-
-### 14. Integrate Workflow Components
-
-**Task Name**: Integrate all workflow components
-
-**Test Specifications**:
-- Test end-to-end workflow process
-- Test combining all workflow components
-- Test integration with MCP resources and tools
-- Test workflow initialization from the server
-- Test persistence across server restarts
-
-**Implementation Steps**:
-```
-1. Create test_workflow_integration.py with test cases covering:
-   - End-to-end workflow process
-   - Component interaction
-   - Resource and tool integration
-   - Server initialization
-   - Persistence testing
-2. Test with realistic email processing scenarios
-```
-
-**TDD Process**:
-1. Run `pytest tests/test_workflow_integration.py -v` to see all tests fail
-2. Create workflow.py integrating all workflow components
-3. Update server.py, resources.py, and tools.py to integrate with workflow.py
-4. Run tests again until all pass
-5. Run `pytest --cov=imap_mcp.workflow` to verify coverage
-
-### 15. Implement Multi-Account Foundation
-
-**Task Name**: Implement multi-account data model
-
-**Test Specifications**:
-- Test account model
-- Test account configuration
-- Test account validation
-- Test account serialization/deserialization
-- Test account storage
-
-**Implementation Steps**:
-```
-1. Create test_account_model.py with test cases covering:
-   - Account model definition
-   - Account configuration
-   - Account validation
-   - Account serialization/deserialization
-   - Account storage
-2. Include both valid and invalid account scenarios
-```
-
-**TDD Process**:
-1. Run `pytest tests/test_account_model.py -v` to see all tests fail
-2. Create account_model.py implementing the required functionality
-3. Run tests again until all pass
-4. Run `pytest --cov=imap_mcp.account_model` to verify coverage
-
-### 16. Implement Account Management
-
-**Task Name**: Implement account management functionality
-
-**Test Specifications**:
-- Test adding accounts
-- Test removing accounts
-- Test updating account settings
-- Test account selection/switching
-- Test account persistence
-
-**Implementation Steps**:
-```
-1. Create test_account_manager.py with test cases covering:
-   - Adding accounts
-   - Removing accounts
-   - Updating account settings
-   - Account selection/switching
-   - Account persistence
-2. Mock filesystem interactions for persistence testing
-```
-
-**TDD Process**:
-1. Run `pytest tests/test_account_manager.py -v` to see all tests fail
-2. Create account_manager.py implementing the required functionality
-3. Run tests again until all pass
-4. Run `pytest --cov=imap_mcp.account_manager` to verify coverage
-
-### 17. Integrate Multi-Account Support
-
-**Task Name**: Integrate multi-account support
-
-**Test Specifications**:
-- Test integration with IMAP client
-- Test integration with resources
-- Test integration with tools
-- Test integration with server
-- Test account-specific persistence
-
-**Implementation Steps**:
-```
-1. Create test_multi_account_integration.py with test cases covering:
-   - IMAP client integration
-   - Resource integration
-   - Tool integration
-   - Server integration
-   - Account-specific persistence
-2. Test with multiple account configurations
-```
-
-**TDD Process**:
-1. Run `pytest tests/test_multi_account_integration.py -v` to see all tests fail
-2. Update all relevant components to support multiple accounts
-3. Run tests again until all pass
-4. Run `pytest --cov=imap_mcp` to verify overall coverage
-
 ### 18. Create Documentation Base
 
 **Task Name**: Set up documentation framework
@@ -743,11 +492,3 @@ The project currently experiences issues with duplicate package installations in
 
 **Expected Outcome**:
 A reliable virtual environment setup process that doesn't create duplicate packages, allowing the application to run without metadata parsing errors.
-
-## Bonus Tasks (After Core Implementation)
-
-1. **Containerization**: Create Docker configuration with tests
-2. **Advanced Search**: Implement enhanced search capabilities
-3. **Email Analytics**: Add email pattern analysis features
-4. **Notification System**: Implement alerts and notifications
-5. **Performance Optimization**: Improve handling of large mailboxes
