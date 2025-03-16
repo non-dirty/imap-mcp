@@ -15,12 +15,12 @@
 - [x] Commit conventions documented
 - [x] GitHub workflow documentation created
 
-### Pending
-- [ ] GitHub Project board setup
-- [ ] GitHub Actions workflow for automated status updates
-- [ ] Task dependency visualization implementation
-- [ ] AI-assisted prioritization setup
-- [ ] Final TASKS.md update (retain methodology, remove task lists)
+### In Progress
+- [ ] GitHub Project board setup (Issue #10)
+- [ ] GitHub Actions workflow for automated status updates (Issue #11)
+- [ ] Task dependency visualization implementation (Issue #12)
+- [ ] AI-assisted prioritization setup (Issue #13)
+- [ ] Final TASKS.md update (retain methodology, remove task lists) (Issue #14)
 
 ## Transition Verification
 
@@ -28,7 +28,7 @@ To verify all tasks have been properly migrated:
 
 1. **Issue Count Check**:
    - Expected number of issues: 11 (from task table)
-   - Actual number of issues: (verify in GitHub)
+   - Actual number of issues: 14 (verified in GitHub)
 
 2. **Coverage Tasks**:
    - Number of modules below 90% coverage: (from running script)
@@ -41,19 +41,19 @@ To verify all tasks have been properly migrated:
 
 ## Next Steps
 
-After Task #24 completion, proceed to Task #26: Implement Automated Task Status Updates.
+After completing the current issues (#10-#14), the GitHub Integration process will be complete. Then we can continue with the regular task workflow.
 
 ## Verification Commands
 
 ```bash
 # Check GitHub issues
-gh issue list --repo owner/imap-mcp
+gh issue list --repo non-dirty/imap-mcp
 
 # Run code coverage
 uv run -m pytest --cov=imap_mcp --cov-report=term
 
 # Verify GitHub project board
-gh project view --owner owner --repo imap-mcp
+gh project view --owner non-dirty --repo imap-mcp
 ```
 
 This document serves as a reference for the transition process and verification.
