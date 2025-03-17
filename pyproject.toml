@@ -34,6 +34,7 @@ dependencies = [
     "requests>=2.32.3",
     "google-auth>=2.38.0",
     "google-auth-oauthlib>=1.2.1",
+    "flask>=3.1.0",
 ]
 
 [project.optional-dependencies]

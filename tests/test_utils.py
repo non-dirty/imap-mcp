@@ -110,8 +110,10 @@ def generate_test_emails(
             flags=[b"\\Seen"] if random.random() > 0.3 else []
         )
         
-        # Add attachments if requested
-        if with_attachments and random.random() > 0.5:
+        # Add attachments if requested - ensures at least one email has attachments
+        if with_attachments:
+            # Always add at least one attachment if with_attachments=True
+            # For some variety, add 1-3 attachments randomly
             attachment_count = random.randint(1, 3)
             attachment_types = [
                 ("pdf", "application/pdf"),

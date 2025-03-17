@@ -344,11 +344,20 @@ class TestImapClient:
             # Select folder
             result = client.select_folder("INBOX")
             
-            # Verify select_folder was called with correct folder
-            mock_imap_client.select_folder.assert_called_once_with("INBOX")
+            # Verify select_folder was called with correct folder and default readonly=False
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=False)
             
             # Verify result is correct
             assert result == {b"EXISTS": 10}
+            
+            # Also test with readonly=True
+            mock_imap_client.select_folder.reset_mock()
+            mock_imap_client.select_folder.return_value = {b"EXISTS": 10}
+            
+            result = client.select_folder("INBOX", readonly=True)
+            
+            # Verify select_folder was called with readonly=True
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=True)
 
     def test_select_folder_not_allowed(self, mock_imap_client):
         """Test selecting a folder that's not allowed."""
@@ -402,8 +411,8 @@ class TestImapClient:
             # Search with predefined string criteria
             result = client.search("unseen", folder="INBOX")
             
-            # Verify select_folder was called
-            mock_imap_client.select_folder.assert_called_once_with("INBOX")
+            # Verify select_folder was called with readonly=True (safe for search)
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=True)
             
             # Verify search was called with correct criteria
             mock_imap_client.search.assert_called_once_with("UNSEEN", charset=None)
@@ -418,8 +427,8 @@ class TestImapClient:
             # Test another predefined criteria
             result = client.search("today", folder="INBOX")
             
-            # Verify select_folder was called
-            mock_imap_client.select_folder.assert_called_once_with("INBOX")
+            # Verify select_folder was called with readonly=True
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=True)
             
             # Verify search was called with correct criteria (SINCE today's date)
             mock_imap_client.search.assert_called_once()
@@ -453,8 +462,8 @@ class TestImapClient:
             complex_criteria = ["FROM", "test@example.com", "SUBJECT", "test"]
             result = client.search(complex_criteria, folder="Sent")
             
-            # Verify select_folder was called
-            mock_imap_client.select_folder.assert_called_once_with("Sent")
+            # Verify select_folder was called with readonly=True
+            mock_imap_client.select_folder.assert_called_once_with("Sent", readonly=True)
             
             # Verify search was called with correct criteria
             mock_imap_client.search.assert_called_once_with(complex_criteria, charset=None)
@@ -486,8 +495,8 @@ class TestImapClient:
             # Fetch email
             email_obj = client.fetch_email(12345, folder="INBOX")
             
-            # Verify select_folder was called
-            mock_imap_client.select_folder.assert_called_once_with("INBOX")
+            # Verify select_folder was called with readonly=True
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=True)
             
             # Verify fetch was called with correct parameters
             mock_imap_client.fetch.assert_called_once_with([12345], ["BODY.PEEK[]", "FLAGS"])
@@ -524,8 +533,8 @@ class TestImapClient:
             # Fetch non-existent email
             email_obj = client.fetch_email(99999, folder="INBOX")
             
-            # Verify select_folder was called
-            mock_imap_client.select_folder.assert_called_once_with("INBOX")
+            # Verify select_folder was called with readonly=True
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=True)
             
             # Verify fetch was called with correct parameters
             mock_imap_client.fetch.assert_called_once_with([99999], ["BODY.PEEK[]", "FLAGS"])
@@ -573,8 +582,8 @@ class TestImapClient:
             # Fetch emails
             emails = client.fetch_emails([101, 102, 103], folder="INBOX")
             
-            # Verify select_folder was called
-            mock_imap_client.select_folder.assert_called_once_with("INBOX")
+            # Verify select_folder was called with readonly=True
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=True)
             
             # Verify fetch was called with correct parameters
             mock_imap_client.fetch.assert_called_once_with([101, 102, 103], ["BODY.PEEK[]", "FLAGS"])
@@ -626,8 +635,8 @@ class TestImapClient:
             # Fetch emails with limit
             emails = client.fetch_emails([101, 102, 103, 104, 105], folder="INBOX", limit=2)
             
-            # Verify select_folder was called
-            mock_imap_client.select_folder.assert_called_once_with("INBOX")
+            # Verify select_folder was called with readonly=True
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=True)
             
             # Verify fetch was called with correct parameters (only first 2 UIDs)
             mock_imap_client.fetch.assert_called_once_with([101, 102], ["BODY.PEEK[]", "FLAGS"])
@@ -660,8 +669,8 @@ class TestImapClient:
             # Mark email as seen
             result = client.mark_email(12345, folder="INBOX", flag=r"\Seen", value=True)
             
-            # Verify select_folder was called
-            mock_imap_client.select_folder.assert_called_once_with("INBOX")
+            # Verify select_folder was called with readonly=False for modifying flags
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=False)
             
             # Verify add_flags was called with correct parameters
             mock_imap_client.add_flags.assert_called_once_with([12345], r"\Seen")
@@ -676,8 +685,8 @@ class TestImapClient:
             # Mark email as not seen
             result = client.mark_email(12345, folder="INBOX", flag=r"\Seen", value=False)
             
-            # Verify select_folder was called
-            mock_imap_client.select_folder.assert_called_once_with("INBOX")
+            # Verify select_folder was called with readonly=False
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=False)
             
             # Verify remove_flags was called with correct parameters
             mock_imap_client.remove_flags.assert_called_once_with([12345], r"\Seen")
@@ -709,8 +718,8 @@ class TestImapClient:
             # Mark email should fail but not raise exception
             result = client.mark_email(12345, folder="INBOX", flag=r"\Seen", value=True)
             
-            # Verify select_folder was called
-            mock_imap_client.select_folder.assert_called_once_with("INBOX")
+            # Verify select_folder was called with readonly=False
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=False)
             
             # Verify add_flags was called with correct parameters
             mock_imap_client.add_flags.assert_called_once_with([12345], r"\Seen")
@@ -741,8 +750,8 @@ class TestImapClient:
             # Move email
             result = client.move_email(12345, source_folder="INBOX", target_folder="Archive")
             
-            # Verify select_folder was called
-            mock_imap_client.select_folder.assert_called_once_with("INBOX")
+            # Verify select_folder was called with readonly=False for modifying emails
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=False)
             
             # Verify copy was called with correct parameters
             mock_imap_client.copy.assert_called_once_with([12345], "Archive")
@@ -781,7 +790,7 @@ class TestImapClient:
             result = client.move_email(12345, source_folder="INBOX", target_folder="Archive")
             
             # Verify operations were called
-            mock_imap_client.select_folder.assert_called_once_with("INBOX")
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=False)
             mock_imap_client.copy.assert_called_once()
             
             # Verify result is success
@@ -826,8 +835,8 @@ class TestImapClient:
             # Move email should fail but not raise exception
             result = client.move_email(12345, source_folder="INBOX", target_folder="Archive")
             
-            # Verify select_folder was called
-            mock_imap_client.select_folder.assert_called_once_with("INBOX")
+            # Verify select_folder was called with readonly=False
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=False)
             
             # Verify copy was called with correct parameters
             mock_imap_client.copy.assert_called_once_with([12345], "Archive")
@@ -858,8 +867,8 @@ class TestImapClient:
             # Delete email
             result = client.delete_email(12345, folder="INBOX")
             
-            # Verify select_folder was called
-            mock_imap_client.select_folder.assert_called_once_with("INBOX")
+            # Verify select_folder was called with readonly=False
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=False)
             
             # Verify add_flags was called to mark as deleted
             mock_imap_client.add_flags.assert_called_once_with([12345], r"\Deleted")
@@ -894,11 +903,223 @@ class TestImapClient:
             # Delete email should fail but not raise exception
             result = client.delete_email(12345, folder="INBOX")
             
-            # Verify select_folder was called
-            mock_imap_client.select_folder.assert_called_once_with("INBOX")
+            # Verify select_folder was called with readonly=False
+            mock_imap_client.select_folder.assert_called_once_with("INBOX", readonly=False)
             
             # Verify add_flags was called
             mock_imap_client.add_flags.assert_called_once_with([12345], r"\Deleted")
             
             # Verify result is failure
             assert result is False
+
+    def test_get_message_count_total(self, mock_imap_client):
+        """Test getting total message count."""
+        config = ImapConfig(
+            host="imap.example.com",
+            port=993,
+            username="test@example.com",
+            password="password",
+            use_ssl=True,
+        )
+        client = ImapClient(config)
+        
+        with patch("imapclient.IMAPClient") as mock_client_class:
+            mock_client_class.return_value = mock_imap_client
+            
+            # Set up mock response for folder_status
+            mock_imap_client.folder_status.return_value = {b"MESSAGES": 42, b"UNSEEN": 5}
+            
+            # Connect first
+            client.connect()
+            
+            # Get message count
+            count = client.get_message_count("INBOX", status="TOTAL")
+            
+            # Verify folder_status was called
+            mock_imap_client.folder_status.assert_called_with("INBOX", ["MESSAGES", "RECENT", "UNSEEN", "UIDNEXT", "UIDVALIDITY"])
+            
+            # Verify count matches the mock response
+            assert count == 42
+
+    def test_get_message_count_unseen(self, mock_imap_client):
+        """Test getting unseen message count."""
+        config = ImapConfig(
+            host="imap.example.com",
+            port=993,
+            username="test@example.com",
+            password="password",
+            use_ssl=True,
+        )
+        client = ImapClient(config)
+        
+        with patch("imapclient.IMAPClient") as mock_client_class:
+            mock_client_class.return_value = mock_imap_client
+            
+            # Set up mock response
+            mock_imap_client.folder_status.return_value = {b"MESSAGES": 42, b"UNSEEN": 5}
+            
+            # Connect first
+            client.connect()
+            
+            # Get message count
+            count = client.get_message_count("INBOX", status="UNSEEN")
+            
+            # Verify folder_status was called
+            mock_imap_client.folder_status.assert_called_with("INBOX", ["MESSAGES", "RECENT", "UNSEEN", "UIDNEXT", "UIDVALIDITY"])
+            
+            # Verify count matches the mock response
+            assert count == 5
+
+    def test_get_message_count_seen(self, mock_imap_client):
+        """Test getting seen message count."""
+        config = ImapConfig(
+            host="imap.example.com",
+            port=993,
+            username="test@example.com",
+            password="password",
+            use_ssl=True,
+        )
+        client = ImapClient(config)
+        
+        with patch("imapclient.IMAPClient") as mock_client_class:
+            mock_client_class.return_value = mock_imap_client
+            
+            # Set up mock response - 42 total messages, 5 unseen = 37 seen
+            mock_imap_client.folder_status.return_value = {b"MESSAGES": 42, b"UNSEEN": 5}
+            
+            # Connect first
+            client.connect()
+            
+            # Get message count for read messages
+            count = client.get_message_count("INBOX", status="SEEN")
+            
+            # Verify folder_status was called
+            mock_imap_client.folder_status.assert_called_with("INBOX", ["MESSAGES", "RECENT", "UNSEEN", "UIDNEXT", "UIDVALIDITY"])
+            
+            # Verify count is calculated correctly (total - unseen)
+            assert count == 37
+
+    def test_get_message_count_invalid_folder(self, mock_imap_client):
+        """Test getting message count for invalid folder."""
+        config = ImapConfig(
+            host="imap.example.com",
+            port=993,
+            username="test@example.com",
+            password="password",
+            use_ssl=True,
+        )
+        allowed_folders = ["INBOX", "Sent"]
+        client = ImapClient(config, allowed_folders=allowed_folders)
+        
+        with patch("imapclient.IMAPClient") as mock_client_class:
+            mock_client_class.return_value = mock_imap_client
+            
+            # Connect first
+            client.connect()
+            
+            # Test with non-existent folder
+            with pytest.raises(ValueError) as excinfo:
+                client.get_message_count("NonExistentFolder")
+            
+            # Verify error message
+            assert "is not allowed" in str(excinfo.value)
+
+    def test_get_message_count_disconnected(self, mock_imap_client):
+        """Test getting message count when disconnected."""
+        config = ImapConfig(
+            host="imap.example.com",
+            port=993,
+            username="test@example.com",
+            password="password",
+            use_ssl=True,
+        )
+        client = ImapClient(config)
+        
+        with patch("imapclient.IMAPClient") as mock_client_class:
+            mock_client_class.return_value = mock_imap_client
+            
+            # Set up mock response for folder_status
+            mock_imap_client.folder_status.return_value = {b"MESSAGES": 42, b"UNSEEN": 5}
+            
+            # Note: We're not connecting, client should auto-connect
+            
+            # Get message count
+            count = client.get_message_count("INBOX")
+            
+            # Verify client automatically connected
+            mock_imap_client.login.assert_called_once()
+            mock_imap_client.folder_status.assert_called_with("INBOX", ["MESSAGES", "RECENT", "UNSEEN", "UIDNEXT", "UIDVALIDITY"])
+            assert count == 42
+
+    def test_get_message_count_empty_folder(self, mock_imap_client):
+        """Test getting message count for empty folder."""
+        config = ImapConfig(
+            host="imap.example.com",
+            port=993,
+            username="test@example.com",
+            password="password",
+            use_ssl=True,
+        )
+        client = ImapClient(config)
+        
+        with patch("imapclient.IMAPClient") as mock_client_class:
+            mock_client_class.return_value = mock_imap_client
+            
+            # Set up mock response with zero messages
+            mock_imap_client.folder_status.return_value = {b"MESSAGES": 0, b"UNSEEN": 0}
+            
+            # Connect first
+            client.connect()
+            
+            # Get message count
+            count = client.get_message_count("INBOX")
+            
+            # Verify folder_status was called
+            mock_imap_client.folder_status.assert_called_with("INBOX", ["MESSAGES", "RECENT", "UNSEEN", "UIDNEXT", "UIDVALIDITY"])
+            
+            # Verify count is zero
+            assert count == 0
+
+    def test_get_message_count_caching(self, mock_imap_client):
+        """Test message count caching."""
+        config = ImapConfig(
+            host="imap.example.com",
+            port=993,
+            username="test@example.com",
+            password="password",
+            use_ssl=True,
+        )
+        client = ImapClient(config)
+        
+        with patch("imapclient.IMAPClient") as mock_client_class:
+            mock_client_class.return_value = mock_imap_client
+            
+            # Set up mock response
+            mock_imap_client.folder_status.return_value = {b"MESSAGES": 42, b"UNSEEN": 5}
+            
+            # Connect first
+            client.connect()
+            
+            # Get message count
+            count1 = client.get_message_count("INBOX")
+            
+            # Verify folder_status was called
+            mock_imap_client.folder_status.assert_called_once_with("INBOX", ["MESSAGES", "RECENT", "UNSEEN", "UIDNEXT", "UIDVALIDITY"])
+            assert count1 == 42
+            
+            # Reset mock
+            mock_imap_client.folder_status.reset_mock()
+            
+            # Get count again, should use cache
+            count2 = client.get_message_count("INBOX")
+            
+            # Verify folder_status was not called again
+            mock_imap_client.folder_status.assert_not_called()
+            assert count2 == 42
+            
+            # Force refresh
+            count3 = client.get_message_count("INBOX", refresh=True)
+            
+            # Verify folder_status was called again
+            mock_imap_client.folder_status.assert_called_once_with("INBOX", ["MESSAGES", "RECENT", "UNSEEN", "UIDNEXT", "UIDVALIDITY"])
+            assert count3 == 42

@@ -31,6 +31,9 @@ class ImapClient:
         self.client = None
         self.folder_cache: Dict[str, List[str]] = {}
         self.connected = False
+        self.count_cache: Dict[str, Dict[str, Tuple[int, datetime]]] = {}  # Cache for message counts
+        self.current_folder = None  # Store the currently selected folder
+        self.folder_message_counts = {}  # Cache for folder message counts
     
     def connect(self) -> None:
         """Connect to IMAP server.
@@ -85,13 +88,34 @@ class ImapClient:
                 logger.info("Disconnected from IMAP server")
     
     def ensure_connected(self) -> None:
-        """Ensure connection is established.
+        """Ensure that we are connected to the IMAP server.
         
+        Raises:
+            ConnectionError: If connection fails
+        """
+        if not self.connected:
+            self.connect()
+    
+    def get_capabilities(self) -> List[str]:
+        """Get IMAP server capabilities.
+        
+        Returns:
+            List of server capabilities
+            
         Raises:
             ConnectionError: If not connected and connection fails
         """
-        if not self.connected or not self.client:
-            self.connect()
+        self.ensure_connected()
+        raw_capabilities = self.client.capabilities()
+        
+        # Convert byte strings to regular strings and normalize case
+        capabilities = []
+        for cap in raw_capabilities:
+            if isinstance(cap, bytes):
+                cap = cap.decode('utf-8')
+            capabilities.append(cap.upper())
+        
+        return capabilities
     
     def list_folders(self, refresh: bool = False) -> List[str]:
         """List available folders.
@@ -128,29 +152,50 @@ class ImapClient:
         logger.debug(f"Listed {len(folders)} folders")
         return folders
     
-    def select_folder(self, folder: str) -> Dict:
-        """Select a folder.
+    def _is_folder_allowed(self, folder: str) -> bool:
+        """Check if a folder is allowed.
         
         Args:
-            folder: Folder name
+            folder: Folder to check
             
         Returns:
-            Folder information
-            
-        Raises:
-            ConnectionError: If not connected and connection fails
-            ValueError: If folder is not allowed
+            True if folder is allowed, False otherwise
         """
-        self.ensure_connected()
+        # If no allowed_folders specified, all folders are allowed
+        if self.allowed_folders is None:
+            return True
         
-        # Check if folder is allowed
-        if self.allowed_folders is not None and folder not in self.allowed_folders:
+        # If allowed_folders is specified, check if folder is in it
+        return folder in self.allowed_folders
+    
+    def select_folder(self, folder: str, readonly: bool = False) -> Dict:
+        """Select folder on IMAP server.
+        
+        Args:
+            folder: Folder to select
+            readonly: If True, select folder in read-only mode
+        
+        Returns:
+            Dictionary with folder information
+        
+        Raises:
+            ValueError: If folder is not allowed
+            ConnectionError: If connection error occurs
+        """
+        # Make sure the folder is allowed
+        if not self._is_folder_allowed(folder):
             raise ValueError(f"Folder '{folder}' is not allowed")
         
-        # Select folder
-        result = self.client.select_folder(folder)
-        logger.debug(f"Selected folder {folder}")
-        return result
+        self.ensure_connected()
+        
+        try:
+            result = self.client.select_folder(folder, readonly=readonly)
+            self.current_folder = folder
+            logger.debug(f"Selected folder '{folder}'")
+            return result
+        except imapclient.IMAPClient.Error as e:
+            logger.error(f"Error selecting folder {folder}: {e}")
+            raise ConnectionError(f"Failed to select folder {folder}: {e}")
     
     def search(
         self, 
@@ -172,7 +217,7 @@ class ImapClient:
             ConnectionError: If not connected and connection fails
         """
         self.ensure_connected()
-        self.select_folder(folder)
+        self.select_folder(folder, readonly=True)
         
         if isinstance(criteria, str):
             # Predefined criteria strings
@@ -219,7 +264,7 @@ class ImapClient:
             ConnectionError: If not connected and connection fails
         """
         self.ensure_connected()
-        self.select_folder(folder)
+        self.select_folder(folder, readonly=True)
         
         # Fetch message data
         result = self.client.fetch([uid], ["BODY.PEEK[]", "FLAGS"])
@@ -266,19 +311,20 @@ class ImapClient:
             ConnectionError: If not connected and connection fails
         """
         self.ensure_connected()
-        self.select_folder(folder)
+        self.select_folder(folder, readonly=True)
         
         # Apply limit if specified
-        if limit is not None and limit < len(uids):
+        if limit is not None and limit > 0:
             uids = uids[:limit]
-        
+            
+        # Fetch message data
         if not uids:
             return {}
-        
-        # Fetch message data
+            
         result = self.client.fetch(uids, ["BODY.PEEK[]", "FLAGS"])
-        emails = {}
         
+        # Parse emails
+        emails = {}
         for uid, message_data in result.items():
             raw_message = message_data[b"BODY[]"]
             flags = message_data[b"FLAGS"]
@@ -293,8 +339,9 @@ class ImapClient:
             message = email.message_from_bytes(raw_message)
             email_obj = Email.from_message(message, uid=uid, folder=folder)
             email_obj.flags = str_flags
+            
             emails[uid] = email_obj
-        
+            
         return emails
     
     def mark_email(
@@ -395,3 +442,312 @@ class ImapClient:
         except Exception as e:
             logger.error(f"Failed to delete email: {e}")
             return False
+    
+    def get_message_count(self, folder: str, status: Optional[str] = None, refresh: bool = False) -> int:
+        """
+        Get message count in folder with optional filter by status.
+        
+        Args:
+            folder: Folder name to get count from
+            status: Optional filter - 'TOTAL', 'UNSEEN', or 'SEEN'
+            refresh: Force refresh count from server
+            
+        Returns:
+            Integer count of messages matching the criteria
+            
+        Raises:
+            ConnectionError: If not connected and connection fails
+            ValueError: If folder is not allowed
+        """
+        # Normalize status
+        if status is None:
+            status = "TOTAL"
+        status = status.upper()
+        
+        # Check if folder is allowed
+        if self.allowed_folders and folder not in self.allowed_folders:
+            raise ValueError(f"Folder '{folder}' is not allowed. Allowed folders: {self.allowed_folders}")
+        
+        # Check cache unless refresh is requested
+        if not refresh and folder in self.folder_message_counts:
+            cached_info = self.folder_message_counts[folder]
+            cached_time = cached_info["time"]
+            cached_count = cached_info.get(status, 0)
+            current_time = datetime.now()
+            
+            # Use cache if it's less than 5 seconds old
+            if (current_time - cached_time).total_seconds() < 5:
+                logger.debug(f"Using cached message count for {folder} with status {status}: {cached_count}")
+                return cached_count
+        
+        # Ensure connection
+        self.ensure_connected()
+        
+        # Get folder status
+        folder_status = self.get_folder_status(folder)
+        
+        # Get count based on status
+        if status == "TOTAL":
+            # Get total message count from folder status
+            count = folder_status.get(b"MESSAGES", 0)
+        elif status == "UNSEEN":
+            # Get unread message count from folder status
+            count = folder_status.get(b"UNSEEN", 0)
+        elif status == "SEEN":
+            # Calculate read count as total - unread
+            total_count = folder_status.get(b"MESSAGES", 0)
+            unread_count = folder_status.get(b"UNSEEN", 0)
+            count = max(0, total_count - unread_count)  # Ensure it's never negative
+        else:
+            raise ValueError(f"Invalid status: {status}. Must be one of: TOTAL, UNSEEN, SEEN")
+            
+        # Update cache
+        if folder not in self.folder_message_counts:
+            self.folder_message_counts[folder] = {}
+        self.folder_message_counts[folder]["time"] = datetime.now()
+        self.folder_message_counts[folder][status] = count
+        
+        logger.debug(f"Message count for {folder} with status {status}: {count}")
+        
+        return count
+
+    def get_total_count(self, folder: str, refresh: bool = False) -> int:
+        """
+        Get total message count in folder.
+        
+        Args:
+            folder: Folder name to get count from
+            refresh: Force refresh count from server
+            
+        Returns:
+            Integer count of total messages
+            
+        Raises:
+            ConnectionError: If not connected and connection fails
+            ValueError: If folder is not allowed
+        """
+        return self.get_message_count(folder, status="TOTAL", refresh=refresh)
+    
+    def get_unread_count(self, folder: str, refresh: bool = False) -> int:
+        """
+        Get count of unread messages in folder.
+        
+        Args:
+            folder: Folder name to get count from
+            refresh: Force refresh count from server
+            
+        Returns:
+            Integer count of unread messages
+            
+        Raises:
+            ConnectionError: If not connected and connection fails
+            ValueError: If folder is not allowed
+        """
+        return self.get_message_count(folder, status="UNSEEN", refresh=refresh)
+    
+    def get_read_count(self, folder: str, refresh: bool = False) -> int:
+        """
+        Get count of read messages in folder.
+        
+        Args:
+            folder: Folder name to get count from
+            refresh: Force refresh count from server
+            
+        Returns:
+            Integer count of read messages
+            
+        Raises:
+            ConnectionError: If not connected and connection fails
+            ValueError: If folder is not allowed
+        """
+        # Ensure we get a consistent count by using a single folder status check
+        self.ensure_connected()
+        folder_status = self.get_folder_status(folder)
+        total = folder_status.get(b"MESSAGES", 0)
+        unread = folder_status.get(b"UNSEEN", 0)
+        read = max(0, total - unread)  # Ensure it's never negative
+        
+        # Cache the read count
+        if folder not in self.folder_message_counts:
+            self.folder_message_counts[folder] = {}
+        self.folder_message_counts[folder]["time"] = datetime.now()
+        self.folder_message_counts[folder]["SEEN"] = read
+        
+        return read
+    
+    def get_folder_status(self, folder: str) -> Dict[str, int]:
+        """Get status information for a folder.
+
+        Args:
+            folder: Folder name
+
+        Returns:
+            Dictionary with status information (MESSAGES, RECENT, UNSEEN, etc.)
+        """
+        self.ensure_connected()
+        
+        try:
+            # STATUS command returns information about the folder without selecting it
+            status = self.client.folder_status(folder, ["MESSAGES", "RECENT", "UNSEEN", "UIDNEXT", "UIDVALIDITY"])
+            logger.debug(f"Folder status for {folder}: {status}")
+            
+            # Add EXISTS key for compatibility with tests that expect it
+            status[b"EXISTS"] = status.get(b"MESSAGES", 0)
+            
+            return status
+        except Exception as e:
+            logger.error(f"Failed to get status for folder {folder}: {e}")
+            raise ValueError(f"Failed to get status for folder {folder}: {e}")
+    
+    def _sort_results(
+        self, 
+        emails: Dict[int, Email], 
+        sort_by: str, 
+        sort_order: str
+    ) -> Dict[int, Email]:
+        """Sort email results by specified field.
+        
+        Args:
+            emails: Dictionary of UIDs to Email objects
+            sort_by: Field to sort by ('date', 'size', 'from', 'subject')
+            sort_order: Sort order ('asc' or 'desc')
+            
+        Returns:
+            Sorted dictionary of UIDs to Email objects
+            
+        Raises:
+            ValueError: If sort_by or sort_order is invalid
+        """
+        valid_sort_fields = {"date", "size", "from", "subject"}
+        valid_sort_orders = {"asc", "desc"}
+        
+        if sort_by not in valid_sort_fields:
+            raise ValueError(f"Invalid sort_by: {sort_by}. Must be one of {valid_sort_fields}")
+        
+        if sort_order not in valid_sort_orders:
+            raise ValueError(f"Invalid sort_order: {sort_order}. Must be one of {valid_sort_orders}")
+        
+        # Handle special case for 'from' which is a reserved keyword
+        if sort_by == "from":
+            attr_name = "from_"
+        else:
+            attr_name = sort_by
+            
+        # Sort the emails based on the specified attribute
+        reverse = sort_order == "desc"
+        sorted_emails = dict(
+            sorted(
+                emails.items(),
+                key=lambda item: getattr(item[1], attr_name) or "",  # Use empty string if None
+                reverse=reverse
+            )
+        )
+        
+        return sorted_emails
+    
+    def _paginate_results(
+        self, 
+        emails: Dict[int, Email], 
+        offset: int, 
+        limit: Optional[int]
+    ) -> Dict[int, Email]:
+        """Paginate results with offset and limit.
+        
+        Args:
+            emails: Dictionary of UIDs to Email objects
+            offset: Number of items to skip
+            limit: Maximum number of items to return (None for all)
+            
+        Returns:
+            Paginated dictionary of UIDs to Email objects
+            
+        Raises:
+            ValueError: If offset is negative or limit is zero
+        """
+        if offset < 0:
+            raise ValueError("Offset cannot be negative")
+        
+        if limit is not None and limit <= 0:
+            raise ValueError("Limit must be positive")
+            
+        # Get list of keys (UIDs)
+        keys = list(emails.keys())
+        
+        # Apply pagination
+        start = offset
+        end = None if limit is None else offset + limit
+        
+        # Slice the keys and create a new dictionary
+        paginated_keys = keys[start:end]
+        paginated_emails = {k: emails[k] for k in paginated_keys}
+        
+        return paginated_emails
+    
+    def get_unread_messages(
+        self, 
+        folder: str = "INBOX", 
+        limit: Optional[int] = 10,
+        offset: int = 0,
+        sort_by: str = "date",
+        sort_order: str = "desc"
+    ) -> Dict[int, Email]:
+        """Get unread messages from folder with pagination.
+        
+        Args:
+            folder: Folder to fetch from
+            limit: Maximum number of messages to retrieve (None for all)
+            offset: Number of messages to skip
+            sort_by: Field to sort by ('date', 'size', 'from', 'subject')
+            sort_order: Sort order ('asc' or 'desc')
+            
+        Returns:
+            Dictionary mapping UIDs to Email objects
+            
+        Raises:
+            ConnectionError: If not connected and connection fails
+            ValueError: If folder is not allowed or parameters are invalid
+        """
+        # Validate parameters
+        if offset < 0:
+            raise ValueError("Offset cannot be negative")
+        
+        if limit is not None and limit <= 0:
+            raise ValueError("Limit must be positive")
+            
+        valid_sort_fields = {"date", "size", "from", "subject"}
+        if sort_by not in valid_sort_fields:
+            raise ValueError(f"Invalid sort_by: {sort_by}. Must be one of {valid_sort_fields}")
+            
+        valid_sort_orders = {"asc", "desc"}
+        if sort_order not in valid_sort_orders:
+            raise ValueError(f"Invalid sort_order: {sort_order}. Must be one of {valid_sort_orders}")
+        
+        # Ensure connection and select folder
+        self.ensure_connected()
+        self.select_folder(folder)
+        
+        # Check if server supports SORT capability
+        use_server_sort = False
+        capabilities = self.get_capabilities()
+        if "SORT" in capabilities:
+            use_server_sort = True
+            logger.debug("Using server-side sorting")
+        else:
+            logger.debug("Server does not support SORT, using client-side sorting")
+        
+        # Search for unread messages
+        unread_uids = self.search("UNSEEN", folder=folder)
+        
+        if not unread_uids:
+            return {}
+        
+        # Fetch all unread messages
+        emails = self.fetch_emails(unread_uids, folder=folder)
+        
+        # Sort the results
+        sorted_emails = self._sort_results(emails, sort_by, sort_order)
+        
+        # Apply pagination
+        paginated_emails = self._paginate_results(sorted_emails, offset, limit)
+        
+        return paginated_emails

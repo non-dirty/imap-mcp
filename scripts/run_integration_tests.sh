@@ -71,6 +71,7 @@ if [ ! -f ".env.test" ]; then
   CLIENT_ID=$(grep -A 10 "oauth2:" "$CONFIG_FILE" | grep "client_id:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'")
   CLIENT_SECRET=$(grep -A 10 "oauth2:" "$CONFIG_FILE" | grep "client_secret:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'")
   REFRESH_TOKEN=$(grep -A 10 "oauth2:" "$CONFIG_FILE" | grep "refresh_token:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'")
+  TEST_EMAIL=$(grep -A 20 "oauth2:" "$CONFIG_FILE" | grep "username:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'" || echo "eye.map.em.see.p@gmail.com")
   
   if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ] || [ -z "$REFRESH_TOKEN" ]; then
     echo -e "${RED}Failed to extract OAuth2 credentials from config file${NC}"
@@ -83,6 +84,7 @@ if [ ! -f ".env.test" ]; then
 GMAIL_CLIENT_ID=$CLIENT_ID
 GMAIL_CLIENT_SECRET=$CLIENT_SECRET
 GMAIL_REFRESH_TOKEN=$REFRESH_TOKEN
+GMAIL_TEST_EMAIL=$TEST_EMAIL
 EOF
   
   echo -e "${GREEN}Created .env.test with OAuth2 credentials${NC}"

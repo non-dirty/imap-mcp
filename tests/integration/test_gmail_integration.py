@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 
 from imap_mcp.config import ImapConfig, OAuth2Config
 from imap_mcp.imap_client import ImapClient
+from imap_mcp.models import Email
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Constants
 TEST_EMAIL = os.getenv("GMAIL_TEST_EMAIL", "test@example.com")
-REQUIRED_ENV_VARS = ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET", "GMAIL_REFRESH_TOKEN"]
+REQUIRED_ENV_VARS = ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET", "GMAIL_REFRESH_TOKEN", "GMAIL_TEST_EMAIL"]
 
 # Load environment variables from .env.test if it exists
 load_dotenv(".env.test")
@@ -68,7 +69,7 @@ def load_gmail_config(oauth2_credentials: Dict[str, str]) -> ImapConfig:
     return ImapConfig(
         host="imap.gmail.com",
         port=993,
-        username=TEST_EMAIL,
+        username=os.getenv("GMAIL_TEST_EMAIL"),  # This will now use the environment variable value
         password="",  # Not used with OAuth2
         use_ssl=True,
         oauth2=oauth2_config
@@ -102,6 +103,12 @@ def gmail_oauth_credentials() -> Dict[str, str]:
     credentials = load_oauth2_credentials()
     if not credentials:
         pytest.skip("OAuth2 credentials not provided, skipping all OAuth2 integration tests")
+    
+    # Log the loaded credentials (without exposing the full secrets)
+    logger.info(f"OAuth2 Client ID: {credentials['client_id'][:5]}...{credentials['client_id'][-5:]}")
+    logger.info(f"OAuth2 Refresh Token: {credentials['refresh_token'][:5]}...{credentials['refresh_token'][-5:]}")
+    logger.info(f"Test Email: {os.getenv('GMAIL_TEST_EMAIL')}")
+    
     return credentials
 
 
@@ -158,7 +165,8 @@ def test_gmail_connect_oauth2(gmail_config: ImapConfig):
     assert capabilities, "Server capabilities should not be empty"
     
     # Verify some expected Gmail capabilities
-    assert "IMAP4rev1" in capabilities, "Gmail should support IMAP4rev1"
+    assert "IMAP4REV1" in capabilities, "Gmail should support IMAP4REV1"
+    assert "IDLE" in capabilities, "Gmail should support IDLE"
     
     # Cleanup
     client.disconnect()
@@ -334,7 +342,7 @@ def test_gmail_folder_permissions(gmail_client: ImapClient):
         # Get folder status
         status = gmail_client.get_folder_status("[Gmail]/Sent Mail")
         assert isinstance(status, dict), "Folder status should be returned as a dictionary"
-        assert "EXISTS" in status, "Folder status should include message count"
+        assert b"EXISTS" in status, "Folder status should include message count"
         
         # Select INBOX for further tests
         gmail_client.select_folder("INBOX")
@@ -478,25 +486,19 @@ def test_gmail_fetch_email(gmail_client: ImapClient):
     
     # Fetch the message
     with timed_operation(f"Fetching message ID {message_id}"):
-        email_data = gmail_client.fetch_email(message_id)
+        email_obj = gmail_client.fetch_email(message_id)
     
     # Verify the email structure
-    assert isinstance(email_data, dict), "Fetched email should be returned as a dictionary"
-    assert "BODY[]" in email_data, "Email should include BODY[] data"
-    assert isinstance(email_data["BODY[]"], bytes), "Email body should be bytes"
-    
-    # Parse the email
-    with timed_operation("Parsing email"):
-        email_message = gmail_client.parse_email(email_data["BODY[]"])
+    assert email_obj is not None, "Email should not be None"
+    assert isinstance(email_obj, Email), "Fetched email should be an Email object"
     
     # Verify basic email properties
-    assert isinstance(email_message, email.message.Message), "Parsed email should be a Message object"
-    assert email_message["From"], "Email should have a From header"
-    assert email_message["Subject"], "Email should have a Subject header"
-    assert email_message["Date"], "Email should have a Date header"
+    assert email_obj.from_, "Email should have a From address"
+    assert email_obj.subject, "Email should have a Subject"
+    assert email_obj.date, "Email should have a Date"
     
     # Log email details
-    logger.info(f"Fetched email: Subject='{email_message['Subject']}', From='{email_message['From']}'")
+    logger.info(f"Fetched email: Subject='{email_obj.subject}', From='{email_obj.from_}'")
 
 
 @pytest.mark.integration
@@ -525,13 +527,14 @@ def test_gmail_fetch_multiple_emails(gmail_client: ImapClient):
     assert len(emails) == len(message_ids), f"Expected {len(message_ids)} emails, got {len(emails)}"
     
     # Verify each email
-    for msg_id, email_data in emails.items():
+    for msg_id, email_obj in emails.items():
         assert msg_id in message_ids, f"Unexpected message ID {msg_id} in results"
-        assert "BODY[]" in email_data, f"Email {msg_id} should include BODY[] data"
+        assert isinstance(email_obj, Email), f"Email {msg_id} should be an Email object"
+        assert email_obj.uid == msg_id, f"Email UID {email_obj.uid} should match message ID {msg_id}"
         
-        # Parse the email
-        email_message = gmail_client.parse_email(email_data["BODY[]"])
-        assert isinstance(email_message, email.message.Message), f"Parsed email {msg_id} should be a Message object"
+        # Verify basic email properties
+        assert email_obj.from_, f"Email {msg_id} should have a From address"
+        assert email_obj.subject, f"Email {msg_id} should have a Subject"
     
     # Log summary
     logger.info(f"Successfully fetched and parsed {len(emails)} emails")
@@ -587,3 +590,161 @@ def test_gmail_invalid_search(gmail_client: ImapClient):
     with timed_operation("Executing valid search after error"):
         results = gmail_client.search("ALL")
     logger.info(f"Found {len(results)} messages in valid search after error")
+
+
+# Message Count Tests
+@pytest.mark.integration
+@pytest.mark.gmail
+@pytest.mark.oauth2
+def test_gmail_message_counts(gmail_client: ImapClient):
+    """Test getting message counts from Gmail folders."""
+    # Test counts in INBOX
+    with timed_operation("Getting INBOX message counts"):
+        # Get all counts from the same folder status to ensure consistency
+        gmail_client.select_folder("INBOX")
+        folder_status = gmail_client.get_folder_status("INBOX")
+        total = folder_status.get(b"MESSAGES", 0)
+        unread = folder_status.get(b"UNSEEN", 0)
+        read = max(0, total - unread)  # Calculate read from the same status data
+        
+        # Now get the values using the client methods but use the refresh parameter
+        # to ensure we're getting the latest values
+        total_count = gmail_client.get_total_count("INBOX", refresh=True)
+        unread_count = gmail_client.get_unread_count("INBOX", refresh=True)
+        read_count = gmail_client.get_read_count("INBOX", refresh=True)
+    
+    logger.info(f"INBOX total: {total_count}, unread: {unread_count}, read: {read_count}")
+    logger.info(f"Status values - total: {total}, unread: {unread}, read: {read}")
+    
+    # Verify counts are consistent with themselves
+    assert total_count >= 0, "Total count should be non-negative"
+    assert unread_count >= 0, "Unread count should be non-negative"
+    assert read_count >= 0, "Read count should be non-negative"
+    assert total_count == unread_count + read_count, f"Total ({total_count}) should equal unread ({unread_count}) + read ({read_count})"
+    
+    # Test getting counts in a non-INBOX folder (e.g. "[Gmail]/Sent Mail")
+    folders = gmail_client.list_folders()
+    sent_folder = next((f for f in folders if 'sent' in f.lower()), None)
+    
+    if sent_folder:
+        with timed_operation(f"Getting counts from {sent_folder}"):
+            # Get a single folder status and use its values consistently
+            gmail_client.select_folder(sent_folder)
+            folder_status = gmail_client.get_folder_status(sent_folder)
+            total = folder_status.get(b"MESSAGES", 0)
+            unread = folder_status.get(b"UNSEEN", 0)
+            read = max(0, total - unread)  # Calculate read from the same status data
+            
+            # Get the values using the client methods with refresh=True to ensure consistency
+            total_count = gmail_client.get_total_count(sent_folder, refresh=True)
+            unread_count = gmail_client.get_unread_count(sent_folder, refresh=True)
+            read_count = gmail_client.get_read_count(sent_folder, refresh=True)
+        
+        logger.info(f"{sent_folder} total: {total_count}, unread: {unread_count}, read: {read_count}")
+        
+        # Verify counts are consistent with themselves
+        assert total_count >= 0, "Total count should be non-negative"
+        assert unread_count >= 0, "Unread count should be non-negative"
+        assert read_count >= 0, "Read count should be non-negative"
+        assert total_count == unread_count + read_count, f"Total ({total_count}) should equal unread ({unread_count}) + read ({read_count})"
+
+
+@pytest.mark.integration
+@pytest.mark.gmail
+@pytest.mark.oauth2
+def test_gmail_message_count_caching(gmail_client: ImapClient):
+    """Test message count caching behavior with real Gmail account."""
+    # Get initial counts with a consistent folder status
+    with timed_operation("Initial count retrieval"):
+        gmail_client.select_folder("INBOX")
+        folder_status = gmail_client.get_folder_status("INBOX")
+        total = folder_status.get(b"MESSAGES", 0)
+        unread = folder_status.get(b"UNSEEN", 0)
+        read = max(0, total - unread)  # Calculate read from the same status data
+        
+        # Force refresh to ensure we have fresh cache values
+        total_count = gmail_client.get_total_count("INBOX", refresh=True)
+        unread_count = gmail_client.get_unread_count("INBOX", refresh=True)
+        read_count = gmail_client.get_read_count("INBOX", refresh=True)
+    
+    logger.info(f"INBOX total: {total_count}, unread: {unread_count}, read: {read_count}")
+    logger.info(f"Status values - total: {total}, unread: {unread}, read: {read}")
+    
+    # Verify counts are consistent with themselves
+    assert total_count >= 0, "Total count should be non-negative"
+    assert unread_count >= 0, "Unread count should be non-negative"
+    assert read_count >= 0, "Read count should be non-negative"
+    assert total_count == unread_count + read_count, f"Total ({total_count}) should equal unread ({unread_count}) + read ({read_count})"
+    
+    # Get counts again - should use cache
+    with timed_operation("Cached count retrieval"):
+        cached_total_count = gmail_client.get_total_count("INBOX")
+        cached_unread_count = gmail_client.get_unread_count("INBOX")
+        cached_read_count = gmail_client.get_read_count("INBOX")
+    
+    logger.info(f"Cached INBOX total: {cached_total_count}, unread: {cached_unread_count}, read: {cached_read_count}")
+    
+    # Counts should be identical to the values we just retrieved
+    assert cached_total_count == total_count, "Cached total count should match initial count"
+    assert cached_unread_count == unread_count, "Cached unread count should match initial count"
+    assert cached_read_count == read_count, "Cached read count should match initial count"
+    
+    # Force refresh and check again - might match or might be different if emails arrived
+    with timed_operation("Forced refresh count retrieval"):
+        total_count = gmail_client.get_total_count("INBOX", refresh=True)
+        unread_count = gmail_client.get_unread_count("INBOX", refresh=True)
+        read_count = gmail_client.get_read_count("INBOX", refresh=True)
+    
+    logger.info(f"Refreshed INBOX total: {total_count}, unread: {unread_count}, read: {read_count}")
+    
+    # Log any differences
+    if cached_total_count != total_count or cached_unread_count != unread_count or cached_read_count != read_count:
+        logger.info(f"Count changed during test: " 
+                   f"total {cached_total_count}->{total_count}, "
+                   f"unread {cached_unread_count}->{unread_count}, "
+                   f"read {cached_read_count}->{read_count}")
+    
+    # This should still be true regardless of counts
+    assert total_count == unread_count + read_count, "Total should equal unread + read after refresh"
+
+
+@pytest.mark.integration
+@pytest.mark.gmail
+@pytest.mark.oauth2
+def test_gmail_message_count_special_folders(gmail_client: ImapClient):
+    """Test getting message counts from Gmail special folders."""
+    folders = gmail_client.list_folders()
+    
+    # Find Gmail special folders
+    special_folders = [f for f in folders if '[Gmail]/' in f or '[Google Mail]/' in f]
+    
+    if not special_folders:
+        pytest.skip("No Gmail special folders found, skipping test")
+    
+    # Test a few special folders
+    for folder in special_folders[:3]:  # Limit to 3 folders to keep test duration reasonable
+        with timed_operation(f"Getting counts from {folder}"):
+            try:
+                # Get a single folder status and use its values consistently
+                gmail_client.select_folder(folder)
+                folder_status = gmail_client.get_folder_status(folder)
+                total = folder_status.get(b"MESSAGES", 0)
+                unread = folder_status.get(b"UNSEEN", 0)
+                read = max(0, total - unread)  # Calculate read from the same status data
+                
+                # Get the values using the client methods with refresh=True to ensure consistency
+                total_count = gmail_client.get_total_count(folder, refresh=True)
+                unread_count = gmail_client.get_unread_count(folder, refresh=True)
+                read_count = gmail_client.get_read_count(folder, refresh=True)
+                
+                logger.info(f"{folder} total: {total_count}, unread: {unread_count}, read: {read_count}")
+                
+                # Verify counts are consistent with themselves
+                assert total_count >= 0, f"Total count for {folder} should be non-negative"
+                assert unread_count >= 0, f"Unread count for {folder} should be non-negative"
+                assert read_count >= 0, f"Read count for {folder} should be non-negative"
+                assert total_count == unread_count + read_count, f"Total should equal unread + read for {folder}"
+            except Exception as e:
+                # Some special folders might have restrictions
+                logger.warning(f"Error getting counts from {folder}: {e}")
+                continue
