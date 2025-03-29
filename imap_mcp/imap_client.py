@@ -2,6 +2,7 @@
 
 import email
 import logging
+import re
 from datetime import datetime, timedelta
 from email.message import Message
 from typing import Dict, List, Optional, Set, Tuple, Union
@@ -266,7 +267,8 @@ class ImapClient:
         self.ensure_connected()
         self.select_folder(folder, readonly=True)
         
-        # Fetch message data
+        # Fetch message data with BODY.PEEK[] to get all parts including headers
+        # Using BODY.PEEK[] instead of RFC822 to avoid setting the \Seen flag
         result = self.client.fetch([uid], ["BODY.PEEK[]", "FLAGS"])
         
         if not result or uid not in result:
@@ -321,6 +323,7 @@ class ImapClient:
         if not uids:
             return {}
             
+        # Use BODY.PEEK[] to get full message including all parts and headers
         result = self.client.fetch(uids, ["BODY.PEEK[]", "FLAGS"])
         
         # Parse emails
@@ -343,6 +346,130 @@ class ImapClient:
             emails[uid] = email_obj
             
         return emails
+        
+    def fetch_thread(self, uid: int, folder: str = "INBOX") -> List[Email]:
+        """Fetch all emails in a thread.
+        
+        This method retrieves the initial email identified by the UID, and then
+        searches for all related emails that belong to the same thread using 
+        Message-ID, In-Reply-To, References headers, and Subject matching as a fallback.
+        
+        Args:
+            uid: UID of any email in the thread
+            folder: Folder to fetch from
+            
+        Returns:
+            List of Email objects in the thread, sorted chronologically
+            
+        Raises:
+            ConnectionError: If not connected and connection fails
+            ValueError: If the initial email cannot be found
+        """
+        self.ensure_connected()
+        self.select_folder(folder, readonly=True)
+        
+        # Fetch the initial email
+        initial_email = self.fetch_email(uid, folder)
+        if not initial_email:
+            raise ValueError(f"Initial email with UID {uid} not found in folder {folder}")
+        
+        # Get thread identifiers from the initial email
+        message_id = initial_email.headers.get("Message-ID", "")
+        subject = initial_email.subject
+        
+        # Strip "Re:", "Fwd:", etc. from the subject for better matching
+        clean_subject = re.sub(r"^(?:Re|Fwd|Fw|FWD|RE|FW):\s*", "", subject, flags=re.IGNORECASE)
+        
+        # Set to store all UIDs that belong to the thread
+        thread_uids = {uid}
+        
+        # Search for emails with this Message-ID in the References or In-Reply-To headers
+        if message_id:
+            # Look for emails that reference this message ID
+            references_query = f'HEADER References "{message_id}"'
+            try:
+                references_results = self.search(references_query, folder)
+                thread_uids.update(references_results)
+            except Exception as e:
+                logger.warning(f"Error searching for References: {e}")
+            
+            # Look for direct replies to this message
+            inreplyto_query = f'HEADER In-Reply-To "{message_id}"'
+            try:
+                inreplyto_results = self.search(inreplyto_query, folder)
+                thread_uids.update(inreplyto_results)
+            except Exception as e:
+                logger.warning(f"Error searching for In-Reply-To: {e}")
+                
+            # If the initial email has References or In-Reply-To, fetch those messages too
+            initial_references = initial_email.headers.get("References", "")
+            initial_inreplyto = initial_email.headers.get("In-Reply-To", "")
+            
+            # Extract all message IDs from the References header
+            if initial_references:
+                for ref_id in re.findall(r'<[^>]+>', initial_references):
+                    query = f'HEADER Message-ID "{ref_id}"'
+                    try:
+                        results = self.search(query, folder)
+                        thread_uids.update(results)
+                    except Exception as e:
+                        logger.warning(f"Error searching for Referenced message {ref_id}: {e}")
+            
+            # Look for the message that this is a reply to
+            if initial_inreplyto:
+                query = f'HEADER Message-ID "{initial_inreplyto}"'
+                try:
+                    results = self.search(query, folder)
+                    thread_uids.update(results)
+                except Exception as e:
+                    logger.warning(f"Error searching for In-Reply-To message: {e}")
+        
+        # If we still have only the initial email or a small thread, try subject-based matching
+        if len(thread_uids) <= 2 and clean_subject:
+            # Look for emails with the same or related subject (Re: Subject)
+            # This is a fallback for email clients that don't properly use References/In-Reply-To
+            subject_query = f'SUBJECT "{clean_subject}"'
+            try:
+                subject_results = self.search(subject_query, folder)
+                
+                # Filter out emails that are unlikely to be part of the thread
+                # For example, avoid including all emails with a common subject like "Hello"
+                if len(subject_results) < 20:  # Set a reasonable limit
+                    thread_uids.update(subject_results)
+                else:
+                    # If there are too many results, try a more strict approach
+                    # Look for exact subject match or common Re: pattern
+                    strict_matches = []
+                    strict_subjects = [
+                        clean_subject,
+                        f"Re: {clean_subject}",
+                        f"RE: {clean_subject}",
+                        f"Fwd: {clean_subject}",
+                        f"FWD: {clean_subject}",
+                        f"Fw: {clean_subject}",
+                        f"FW: {clean_subject}"
+                    ]
+                    
+                    # Fetch subjects for all candidate emails
+                    candidate_emails = self.fetch_emails(subject_results, folder)
+                    for candidate_uid, candidate_email in candidate_emails.items():
+                        if candidate_email.subject in strict_subjects:
+                            strict_matches.append(candidate_uid)
+                    
+                    thread_uids.update(strict_matches)
+            except Exception as e:
+                logger.warning(f"Error searching by subject: {e}")
+        
+        # Fetch all discovered thread emails
+        thread_emails = self.fetch_emails(list(thread_uids), folder)
+        
+        # Sort emails by date (chronologically)
+        sorted_emails = sorted(
+            thread_emails.values(), 
+            key=lambda e: e.date if e.date else datetime.min
+        )
+        
+        return sorted_emails
     
     def mark_email(
         self, 
@@ -751,3 +878,123 @@ class ImapClient:
         paginated_emails = self._paginate_results(sorted_emails, offset, limit)
         
         return paginated_emails
+
+    def _get_drafts_folder(self) -> str:
+        """Get the name of the appropriate drafts folder for the current server.
+        
+        This method intelligently determines the most appropriate drafts folder
+        based on the server type and available folders. It handles different server
+        configurations:
+        
+        1. Gmail: Uses '[Gmail]/Drafts' or similar Gmail-specific folder
+        2. Standard IMAP: Uses 'Drafts' folder
+        3. Fallback: If no drafts folder is found, returns 'Drafts' as a default
+        
+        The method checks server capabilities to identify Gmail servers (which use
+        the X-GM-EXT capability), then looks for appropriate folders in the folder list.
+        
+        Returns:
+            str: The name of the drafts folder to use
+        """
+        self.ensure_connected()
+        
+        # Get list of folders
+        folders = self.list_folders()
+        
+        # Check capabilities to see if this is Gmail
+        capabilities = self.get_capabilities()
+        is_gmail = any(cap.startswith('X-GM-EXT') for cap in capabilities)
+        
+        # Look for Gmail's drafts folder
+        if is_gmail:
+            gmail_drafts = '[Gmail]/Drafts'
+            if gmail_drafts in folders:
+                return gmail_drafts
+            
+            # Some Gmail accounts might have different folder structure
+            for folder in folders:
+                if '/Drafts' in folder:
+                    return folder
+        
+        # Look for standard drafts folder
+        if 'Drafts' in folders:
+            return 'Drafts'
+        
+        # If no drafts folder found, create one or use a fallback
+        # In real implementation, we might want to create a Drafts folder here
+        logger.warning("No drafts folder found, using 'Drafts' as fallback")
+        return 'Drafts'
+    
+    def save_draft_mime(self, mime_message: Message) -> Optional[int]:
+        """Save a MIME message as a draft in the drafts folder.
+        
+        This method saves an email.message.Message object as a draft message
+        in the user's drafts folder. It:
+        
+        1. Automatically determines the appropriate drafts folder
+        2. Appends the message with the \\Draft flag
+        3. Extracts and returns the UID of the newly created draft message
+        
+        The method parses the server's response to extract the UID of the saved
+        draft message, which can be used for further operations on the draft.
+        
+        Example:
+            ```python
+            # Create a MIME message
+            from email.mime.text import MIMEText
+            msg = MIMEText("Draft message content")
+            msg['Subject'] = "Draft Subject"
+            msg['To'] = "recipient@example.com"
+            msg['From'] = "sender@example.com"
+            
+            # Save as draft
+            draft_uid = imap_client.save_draft_mime(msg)
+            
+            if draft_uid:
+                print(f"Draft saved with UID: {draft_uid}")
+            else:
+                print("Failed to save draft")
+            ```
+        
+        Args:
+            mime_message: The email.message.Message object to save as a draft
+            
+        Returns:
+            Optional[int]: The UID of the saved draft message if successful,
+                          None if the message couldn't be saved or if the UID
+                          couldn't be determined from the server response
+        """
+        if not self.connected:
+            logger.error("Not connected to IMAP server")
+            return None
+        
+        try:
+            # Get the drafts folder
+            drafts_folder = self._get_drafts_folder()
+            
+            # Convert the message to bytes
+            message_bytes = mime_message.as_bytes()
+            
+            # Append the message to the drafts folder with the \Draft flag
+            result = self.client.append(drafts_folder, message_bytes, ["\\Draft"])
+            
+            # Try to extract the UID from the response
+            # The APPENDUID response format is: [APPENDUID <UIDVALIDITY> <UID>]
+            # For example: b'[APPENDUID 1234567890 123]'
+            uid = None
+            if result:
+                result_str = str(result)
+                match = re.search(r'APPENDUID \d+ (\d+)', result_str, re.IGNORECASE)
+                if match:
+                    uid = int(match.group(1))
+            
+            if uid:
+                logger.info(f"Draft saved to {drafts_folder} with UID {uid}")
+                return uid
+            else:
+                logger.warning("Draft saved but couldn't determine UID")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error saving draft: {e}")
+            return None

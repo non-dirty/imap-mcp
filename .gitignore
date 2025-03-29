@@ -60,6 +60,7 @@ config.yaml*
 # Resources 
 # Exclude all files in resources by default
 resources/
+reference_github/
 
 
 # Exclude any sensitive files that might be in resources even if they match above patterns

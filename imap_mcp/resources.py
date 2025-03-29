@@ -8,6 +8,7 @@ from mcp.server.fastmcp import FastMCP, Context
 
 from imap_mcp.imap_client import ImapClient
 from imap_mcp.models import Email
+from imap_mcp.smtp_client import SmtpClient
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,24 @@ def get_client_from_context(ctx: Context) -> ImapClient:
     client = ctx.request_context.lifespan_context.get("imap_client")
     if not client:
         raise RuntimeError("IMAP client not available")
+    return client
+
+
+def get_smtp_client_from_context(ctx: Context) -> SmtpClient:
+    """Get SMTP client from context.
+    
+    Args:
+        ctx: MCP context
+        
+    Returns:
+        SMTP client
+        
+    Raises:
+        RuntimeError: If SMTP client is not available
+    """
+    client = ctx.request_context.lifespan_context.get("smtp_client")
+    if not client:
+        raise RuntimeError("SMTP client not available")
     return client
 
 

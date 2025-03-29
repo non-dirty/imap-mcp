@@ -2,15 +2,20 @@
 
 import json
 import logging
-from typing import Dict, List, Optional, Union
+import os
+from datetime import datetime
+from typing import Dict, List, Optional, Union, Any
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp import Context
 
 from imap_mcp.imap_client import ImapClient
-from imap_mcp.resources import get_client_from_context
+from imap_mcp.resources import get_client_from_context, get_smtp_client_from_context
 
 logger = logging.getLogger(__name__)
+
+# Define the path for storing tasks
+TASKS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tasks.json")
 
 
 def register_tools(mcp: FastMCP, imap_client: ImapClient) -> None:
@@ -317,3 +322,225 @@ def register_tools(mcp: FastMCP, imap_client: ImapClient) -> None:
         except Exception as e:
             logger.error(f"Error processing email: {e}")
             return f"Error: {e}"
+    
+    # Create task (mock implementation)
+    @mcp.tool()
+    async def create_task(
+        description: str,
+        ctx: Context,
+        due_date: Optional[str] = None,
+        priority: Optional[int] = None,
+    ) -> str:
+        """Create a new task.
+        
+        This is a mock implementation that logs the task details
+        and saves them to a local file (tasks.json).
+        
+        Args:
+            description: Task description
+            due_date: Optional due date in format YYYY-MM-DD
+            priority: Optional priority level (1-3, where 1 is highest)
+            ctx: MCP context
+            
+        Returns:
+            Success message or error message
+        """
+        # Validate inputs
+        if not description:
+            return "Error: Task description is required"
+        
+        # Validate due_date format if provided
+        if due_date:
+            try:
+                # Attempt to parse the date to validate format
+                datetime.strptime(due_date, "%Y-%m-%d")
+            except ValueError:
+                return "Error: Due date must be in format YYYY-MM-DD"
+        
+        # Validate priority if provided
+        if priority is not None:
+            if not isinstance(priority, int):
+                return "Error: Priority must be an integer"
+            if priority < 1 or priority > 3:
+                return "Error: Priority must be between 1 and 3"
+        
+        # Create task object
+        task = {
+            "description": description,
+            "created_at": datetime.now().isoformat(),
+        }
+        
+        # Add optional fields if provided
+        if due_date:
+            task["due_date"] = due_date
+        if priority is not None:
+            task["priority"] = priority
+            
+        # Log the task details
+        logger.info(f"New task created: {json.dumps(task)}")
+        
+        # Save task to file
+        try:
+            # Load existing tasks or create empty list
+            existing_tasks = []
+            if os.path.exists(TASKS_FILE):
+                with open(TASKS_FILE, "r") as f:
+                    existing_tasks = json.load(f)
+            
+            # Append new task
+            existing_tasks.append(task)
+            
+            # Write back to file
+            with open(TASKS_FILE, "w") as f:
+                json.dump(existing_tasks, f, indent=2)
+                
+            return json.dumps({
+                "status": "success",
+                "message": "Task added successfully",
+                "task_description": description
+            }, indent=2)
+            
+        except Exception as e:
+            logger.error(f"Error saving task: {e}")
+            return f"Error saving task: {e}"
+
+    # Draft reply to email
+    @mcp.tool()
+    async def draft_reply_tool(
+        folder: str,
+        uid: int,
+        reply_body: str,
+        ctx: Context,
+        reply_all: bool = False,
+        cc: Optional[List[str]] = None,
+        body_html: Optional[str] = None,
+    ) -> str:
+        """Create a draft reply to an email and save it to the drafts folder.
+        
+        This tool combines email composition and draft saving functionality to create 
+        a properly formatted reply to an existing email and save it as a draft message.
+        The reply includes proper headers (In-Reply-To, References, Subject with "Re:" prefix)
+        and formatting (quoted original message).
+        
+        The tool performs the following steps:
+        1. Fetches the original email using its UID and folder
+        2. Creates a properly formatted reply MIME message
+        3. Saves the message to the user's drafts folder
+        4. Returns the status and UID of the newly created draft
+        
+        The reply can be either to the original sender only (default) or to all recipients
+        (reply_all=True). Additional CC recipients can be specified with the cc parameter.
+        
+        HTML Support:
+        If body_html is provided, the email will be created with both plain text and HTML
+        versions (multipart/alternative), allowing email clients to display the most 
+        appropriate version. The HTML part will include properly formatted quoted content
+        from the original email.
+        
+        Example 1 - Basic Reply:
+            ```python
+            result = await draft_reply_tool(
+                folder="INBOX",
+                uid=12345,
+                reply_body="Thank you for your email. I'll get back to you soon.",
+                ctx=context
+            )
+            ```
+            
+        Example 2 - Reply All with CC:
+            ```python
+            result = await draft_reply_tool(
+                folder="INBOX",
+                uid=12345,
+                reply_body="Thanks for including everyone in this discussion.",
+                reply_all=True,
+                cc=["supervisor@example.com"],
+                ctx=context
+            )
+            ```
+            
+        Example 3 - Reply with HTML Content:
+            ```python
+            result = await draft_reply_tool(
+                folder="INBOX",
+                uid=12345,
+                reply_body="Plain text version of the reply.",
+                body_html="<p><strong>HTML version</strong> of the reply with formatting.</p>",
+                ctx=context
+            )
+            ```
+        
+        Args:
+            folder: Folder containing the original email (e.g., "INBOX")
+            uid: UID of the original email to reply to
+            reply_body: Body text for the reply (plain text version)
+            ctx: MCP context containing client connections
+            reply_all: Whether to reply to all recipients (default: False)
+            cc: Additional CC recipients (optional)
+            body_html: Optional HTML version of the reply body
+            
+        Returns:
+            JSON-formatted string with the result:
+            - Success: {"status": "success", "message": "Draft reply created", "draft_uid": uid}
+            - Failure: {"status": "error", "message": "Error message"}
+        """
+        # Get the IMAP client
+        imap_client = get_client_from_context(ctx)
+        
+        try:
+            # Fetch the original email
+            original_email = imap_client.fetch_email(uid, folder=folder)
+            
+            if not original_email:
+                error_msg = f"Original email with UID {uid} not found in folder {folder}"
+                logger.error(error_msg)
+                return json.dumps({
+                    "status": "error",
+                    "message": error_msg
+                })
+            
+            # Get the SMTP client
+            smtp_client = get_smtp_client_from_context(ctx)
+            
+            # Create the reply MIME message
+            if body_html:
+                mime_message = smtp_client.create_reply_mime(
+                    original_email, 
+                    reply_body, 
+                    reply_all=reply_all, 
+                    cc=cc,
+                    body_html=body_html
+                )
+            else:
+                mime_message = smtp_client.create_reply_mime(
+                    original_email, 
+                    reply_body, 
+                    reply_all=reply_all, 
+                    cc=cc
+                )
+            
+            # Save the draft
+            draft_uid = imap_client.save_draft_mime(mime_message)
+            
+            if draft_uid:
+                logger.info(f"Draft reply created with UID {draft_uid}")
+                return json.dumps({
+                    "status": "success",
+                    "message": "Draft reply created",
+                    "draft_uid": draft_uid
+                })
+            else:
+                error_msg = "Failed to save draft reply"
+                logger.error(error_msg)
+                return json.dumps({
+                    "status": "error",
+                    "message": error_msg
+                })
+                
+        except Exception as e:
+            error_msg = f"Error creating draft reply: {e}"
+            logger.error(error_msg)
+            return json.dumps({
+                "status": "error",
+                "message": error_msg
+            })

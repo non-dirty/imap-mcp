@@ -5,11 +5,14 @@ import email
 import email.utils
 import os
 import re
+import time
+import logging
+from contextlib import contextmanager
 from email.header import Header
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -21,7 +24,43 @@ except ImportError:
     class BodyData: pass
     class Envelope: pass
 
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = lambda x=None: None
+
 from imap_mcp.models import Email, EmailAddress, EmailAttachment, EmailContent
+from imap_mcp.config import ImapConfig, OAuth2Config
+from imap_mcp.imap_client import ImapClient
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def pytest_addoption(parser):
+    """Add command-line options to pytest."""
+    parser.addoption(
+        "--skip-integration",
+        action="store_true",
+        default=False,
+        help="Skip integration tests that require real services",
+    )
+
+
+def pytest_configure(config):
+    """Configure pytest with additional markers."""
+    config.addinivalue_line(
+        "markers", "integration: tests that require connection to real services"
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip integration tests if --skip-integration is provided."""
+    if config.getoption("--skip-integration"):
+        skip_integration = pytest.mark.skip(reason="Integration tests skipped with --skip-integration")
+        for item in items:
+            if "integration" in item.keywords:
+                item.add_marker(skip_integration)
 
 
 @pytest.fixture
@@ -291,3 +330,100 @@ def configure_test_env():
     # Restore original environment
     os.environ.clear()
     os.environ.update(original_env)
+
+
+# Load environment variables from .env.test if it exists
+load_dotenv(".env.test")
+
+# Constants for Gmail integration tests
+TEST_EMAIL = os.getenv("GMAIL_TEST_EMAIL", "test@example.com")
+REQUIRED_ENV_VARS = ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET", "GMAIL_REFRESH_TOKEN", "GMAIL_TEST_EMAIL"]
+
+
+@contextmanager
+def timed_operation(description: str) -> Generator[None, None, None]:
+    """Context manager to measure and log operation time.
+    
+    Args:
+        description: Description of the operation being timed
+    """
+    logger.info(f"Starting: {description}")
+    start_time = time.time()
+    try:
+        yield
+    finally:
+        elapsed = time.time() - start_time
+        logger.info(f"Completed: {description} in {elapsed:.2f} seconds")
+
+
+def load_oauth2_credentials() -> Dict[str, str]:
+    """Load OAuth2 credentials from environment variables.
+    
+    Returns:
+        Dictionary with OAuth2 credentials or empty dict if not available
+    """
+    missing_vars = [var for var in REQUIRED_ENV_VARS if not os.getenv(var)]
+    
+    if missing_vars:
+        logger.warning(f"Missing required environment variables: {', '.join(missing_vars)}")
+        return {}
+    
+    return {
+        "client_id": os.getenv("GMAIL_CLIENT_ID", ""),
+        "client_secret": os.getenv("GMAIL_CLIENT_SECRET", ""),
+        "refresh_token": os.getenv("GMAIL_REFRESH_TOKEN", "")
+    }
+
+
+@pytest.fixture
+def gmail_oauth_credentials() -> Dict[str, str]:
+    """Get Gmail OAuth2 credentials from environment variables.
+    
+    Returns:
+        Dictionary with OAuth2 credentials
+    """
+    credentials = load_oauth2_credentials()
+    if not credentials:
+        pytest.skip("Gmail OAuth2 credentials not available in environment variables")
+    return credentials
+
+
+@pytest.fixture
+def gmail_config(gmail_oauth_credentials: Dict[str, str]) -> ImapConfig:
+    """Create a configuration for Gmail IMAP.
+    
+    Args:
+        gmail_oauth_credentials: Dictionary with OAuth2 credentials
+        
+    Returns:
+        ImapConfig for Gmail with OAuth2
+    """
+    oauth2_config = OAuth2Config(**gmail_oauth_credentials)
+    return ImapConfig(
+        host="imap.gmail.com",
+        port=993,
+        username=TEST_EMAIL,
+        use_ssl=True,
+        oauth2=oauth2_config
+    )
+
+
+@pytest.fixture
+def gmail_client(gmail_config: ImapConfig) -> ImapClient:
+    """Create and connect a Gmail IMAP client using OAuth2 authentication.
+    
+    Args:
+        gmail_config: ImapConfig for Gmail with OAuth2
+        
+    Returns:
+        Connected ImapClient instance
+    """
+    client = ImapClient(gmail_config)
+    with timed_operation("Connecting to Gmail"):
+        client.connect()
+    
+    yield client
+    
+    # Cleanup after test
+    logger.info("Disconnecting from Gmail")
+    client.disconnect()

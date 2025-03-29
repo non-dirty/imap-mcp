@@ -225,6 +225,16 @@ def test_get_unread_messages_invalid_params():
 @pytest.mark.integration
 @pytest.mark.gmail
 @pytest.mark.oauth2
-def test_gmail_get_unread_messages():
-    """Skip this test for now since it requires the gmail_client fixture from test_gmail_integration.py."""
-    pytest.skip("Integration test requires gmail_client fixture")
+def test_gmail_get_unread_messages(gmail_client):
+    """Test getting unread messages from a real Gmail account."""
+    # Fetch unread messages
+    messages = gmail_client.get_unread_messages(folder="INBOX", limit=5)
+    
+    # Verify we got a list of messages (might be empty if inbox is empty)
+    assert isinstance(messages, dict)
+    
+    # If we got messages, verify they have the expected structure
+    for message in messages.values():
+        assert isinstance(message, Email)
+        assert message.folder == "INBOX"
+        assert "\\Seen" not in message.flags

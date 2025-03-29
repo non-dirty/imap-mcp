@@ -1,5 +1,7 @@
 # IMAP MCP Server Development Guide
 
+> **Important**: Before starting any development task, first consult the [DOCUMENTATION_CATALOG.md](./DOCUMENTATION_CATALOG.md) file to identify the most relevant documentation for your task. This catalog provides a comprehensive overview of all documentation files in the project.
+
 ## Environment Setup and Build Commands with `uv`
 - Create virtual environment: `uv venv`
 - Activate virtual environment: `source .venv/bin/activate` (Unix/macOS) or `.venv\Scripts\activate` (Windows)
@@ -85,3 +87,92 @@ GitHub Issues have the following status labels:
 - **status:archived**: Task has been archived (currently manual update)
 
 Priority labels follow the format `priority:X` where X is a number starting from 1 (highest priority).
+
+## Integration Testing
+
+Integration tests verify that the IMAP MCP server works correctly with real email services. These tests require valid credentials and network connectivity to external services.
+
+### Environment Setup for Integration Tests
+
+1. **Required Environment Variables**:
+   - `TEST_IMAP_HOST`: IMAP server hostname (e.g., `imap.gmail.com`)
+   - `TEST_SMTP_HOST`: SMTP server hostname (e.g., `smtp.gmail.com`)
+   - `TEST_EMAIL`: Email address for testing
+   - `TEST_PASSWORD`: Email password or app password
+
+2. **Set Up Environment Variables**:
+   ```bash
+   # For temporary use in current session
+   export TEST_IMAP_HOST=imap.gmail.com
+   export TEST_SMTP_HOST=smtp.gmail.com
+   export TEST_EMAIL=your-test-email@gmail.com
+   export TEST_PASSWORD=your-app-password
+   
+   # Or add to your .env file for persistence (make sure it's in .gitignore)
+   echo "TEST_IMAP_HOST=imap.gmail.com" >> .env
+   echo "TEST_SMTP_HOST=smtp.gmail.com" >> .env
+   echo "TEST_EMAIL=your-test-email@gmail.com" >> .env
+   echo "TEST_PASSWORD=your-app-password" >> .env
+   ```
+
+### Refreshing OAuth2 Credentials
+
+OAuth2 tokens expire periodically. If integration tests fail with authentication errors, refresh your tokens before running tests:
+
+1. **Check if token refresh is needed**:
+   ```bash
+   uv run python -m imap_mcp.oauth2 check-token --config config.yaml
+   ```
+
+2. **Refresh the token if expired**:
+   ```bash
+   uv run python -m imap_mcp.auth_setup refresh-token --config config.yaml
+   ```
+
+3. **Generate a new token if refresh fails**:
+   ```bash
+   uv run python -m imap_mcp.auth_setup generate-token --config config.yaml
+   ```
+
+### Running Integration Tests
+
+1. **Run all tests including integration tests**:
+   ```bash
+   uv run pytest
+   ```
+
+2. **Run only integration tests**:
+   ```bash
+   uv run pytest tests/integration/
+   ```
+
+3. **Skip integration tests when necessary**:
+   ```bash
+   uv run pytest --skip-integration
+   ```
+
+4. **Run specific integration test**:
+   ```bash
+   uv run pytest tests/integration/test_gmail_integration.py::test_gmail_connect_oauth2
+   ```
+
+### Writing New Integration Tests
+
+When writing new integration tests:
+
+1. **Mark tests appropriately**: Use the `@pytest.mark.integration` decorator
+2. **Handle authentication errors gracefully**: Tests should fail clearly if credentials are invalid or expired
+3. **Clean up after tests**: Restore mailbox state after tests run (delete test messages, reset folders)
+4. **Isolate test data**: Use unique identifiers or timestamps for test data to avoid conflicts
+5. **Use test fixtures**: Leverage pytest fixtures for setup and teardown
+6. **Respect rate limits**: Add delays if necessary to avoid hitting service rate limits
+
+Example integration test structure:
+```python
+import pytest
+
+@pytest.mark.integration
+def test_some_integration_feature(gmail_client):
+    # Test implementation
+    result = gmail_client.some_operation()
+    assert result == expected_value

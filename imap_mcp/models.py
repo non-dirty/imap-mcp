@@ -104,9 +104,19 @@ class EmailAttachment:
         
         content = part.get_payload(decode=True)
         content_type = part.get_content_type()
+        
+        # Extract Content-ID properly, removing angle brackets if present
         content_id = part.get("Content-ID")
         if content_id:
             content_id = content_id.strip("<>")
+        
+        # If there's no Content-ID but there is a Content-Disposition with filename,
+        # the attachment might be referenced in HTML via the filename
+        if not content_id and filename:
+            cdisp = part.get("Content-Disposition", "")
+            if "inline" in cdisp and filename:
+                # Some clients use the filename as a reference
+                content_id = filename
         
         return cls(
             filename=decode_mime_header(filename),
@@ -152,6 +162,8 @@ class Email:
     headers: Dict[str, str] = field(default_factory=dict)
     folder: Optional[str] = None
     uid: Optional[int] = None
+    in_reply_to: Optional[str] = None
+    references: List[str] = field(default_factory=list)
     
     @classmethod
     def from_message(
@@ -175,6 +187,19 @@ class Email:
         bcc_str = decode_mime_header(message.get("Bcc", ""))
         date_str = message.get("Date")
         message_id = message.get("Message-ID", "")
+        if message_id:
+            message_id = message_id.strip()
+        
+        # Get thread-related headers
+        in_reply_to = message.get("In-Reply-To", "")
+        if in_reply_to:
+            in_reply_to = in_reply_to.strip()
+        
+        references_str = message.get("References", "")
+        references = []
+        if references_str:
+            # Extract all message IDs from References header
+            references = [ref.strip() for ref in re.findall(r'<[^>]+>', references_str)]
         
         # Parse addresses
         from_ = EmailAddress.parse(from_str)
@@ -199,40 +224,68 @@ class Email:
         content = EmailContent()
         attachments = []
         
+        # Process the email body
         if message.is_multipart():
-            for part in message.walk():
-                if part.get_content_maintype() == "multipart":
-                    continue
-                
-                content_type = part.get_content_type()
-                content_disposition = part.get("Content-Disposition", "")
-                
-                # Handle attachments
-                if "attachment" in content_disposition or "inline" in content_disposition:
-                    attachments.append(EmailAttachment.from_part(part))
-                    continue
-                
-                # Handle text content
-                if content_type == "text/plain" and not content.text:
-                    content.text = part.get_payload(decode=True).decode(
-                        part.get_content_charset() or "utf-8", errors="replace"
-                    )
-                elif content_type == "text/html" and not content.html:
-                    content.html = part.get_payload(decode=True).decode(
-                        part.get_content_charset() or "utf-8", errors="replace"
-                    )
+            # Create a recursive function to handle nested multipart messages
+            def process_part(part, content, attachments):
+                if part.is_multipart():
+                    # Recursively process each subpart
+                    for subpart in part.get_payload():
+                        process_part(subpart, content, attachments)
+                else:
+                    content_type = part.get_content_type()
+                    content_disposition = part.get("Content-Disposition", "")
+                    
+                    # Handle attachments (both explicit and inline)
+                    if ("attachment" in content_disposition or 
+                        "inline" in content_disposition or
+                        content_type.startswith("image/") or
+                        content_type.startswith("application/") or
+                        "name=" in part.get("Content-Type", "")):
+                        
+                        attachments.append(EmailAttachment.from_part(part))
+                    # Handle text content
+                    elif content_type == "text/plain":
+                        # Only replace existing text if it's empty
+                        if not content.text:
+                            try:
+                                charset = part.get_content_charset() or "utf-8"
+                                text = part.get_payload(decode=True).decode(charset, errors="replace")
+                                content.text = text
+                            except Exception as e:
+                                content.text = f"[Error decoding plain text content: {e}]"
+                    # Handle HTML content
+                    elif content_type == "text/html":
+                        # Only replace existing HTML if it's empty
+                        if not content.html:
+                            try:
+                                charset = part.get_content_charset() or "utf-8"
+                                html_content = part.get_payload(decode=True).decode(charset, errors="replace")
+                                content.html = html_content
+                            except Exception as e:
+                                content.html = f"[Error decoding HTML content: {e}]"
+            
+            # Start processing parts
+            process_part(message, content, attachments)
         else:
             # Single part message
             content_type = message.get_content_type()
             
             if content_type == "text/plain":
-                content.text = message.get_payload(decode=True).decode(
-                    message.get_content_charset() or "utf-8", errors="replace"
-                )
+                try:
+                    charset = message.get_content_charset() or "utf-8"
+                    content.text = message.get_payload(decode=True).decode(charset, errors="replace")
+                except Exception as e:
+                    content.text = f"[Error decoding plain text content: {e}]"
             elif content_type == "text/html":
-                content.html = message.get_payload(decode=True).decode(
-                    message.get_content_charset() or "utf-8", errors="replace"
-                )
+                try:
+                    charset = message.get_content_charset() or "utf-8"
+                    content.html = message.get_payload(decode=True).decode(charset, errors="replace")
+                except Exception as e:
+                    content.html = f"[Error decoding HTML content: {e}]"
+            else:
+                # If not plain text or HTML, treat as attachment
+                attachments.append(EmailAttachment.from_part(message))
         
         return cls(
             message_id=message_id,
@@ -247,15 +300,25 @@ class Email:
             headers=headers,
             folder=folder,
             uid=uid,
+            in_reply_to=in_reply_to,
+            references=references,
         )
     
     def summary(self) -> str:
         """Return a summary of the email."""
         date_str = f"{self.date:%Y-%m-%d %H:%M:%S}" if self.date else "Unknown date"
+        thread_info = ""
+        if self.in_reply_to or self.references:
+            thread_info = "\nThread: " + (
+                f"Reply to {self.in_reply_to}" if self.in_reply_to else 
+                f"References {len(self.references)} previous messages"
+            )
+        
         return (
             f"From: {self.from_}\n"
             f"To: {', '.join(str(a) for a in self.to)}\n"
             f"Date: {date_str}\n"
             f"Subject: {self.subject}\n"
             f"Attachments: {len(self.attachments)}"
+            f"{thread_info}"
         )
