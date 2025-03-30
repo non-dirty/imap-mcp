@@ -9,6 +9,14 @@
 - Install specific packages: `uv add package_name`
 - Run commands within the environment: `uv run command [args]`
 
+### Package Management
+   - ONLY use uv, NEVER pip
+   - Installation: `uv add package`
+   - Running tools: `uv run tool`
+   - Upgrading: `uv add --dev package --upgrade-package package`
+   - FORBIDDEN: `uv pip install`, `@latest` syntax
+   - FORBIDDEN: `uv run python ...`
+
 ## Build and Test Commands
 - Install dependencies: `uv pip install -e ".[dev]"`
 - Run all tests: `uv run pytest`
@@ -176,3 +184,35 @@ def test_some_integration_feature(gmail_client):
     # Test implementation
     result = gmail_client.some_operation()
     assert result == expected_value
+
+## Development Efficiency Strategies
+
+When working with AI assistants or development tools that use credit-based systems, follow these practices to maximize efficiency:
+
+### Minimize Tool Use
+1. **Batch Commands**: Run fewer, more comprehensive commands rather than many small ones.
+   - Run all tests at once: `uv run pytest` instead of testing individual files sequentially
+   - Use coverage reports to identify issues in one pass: `uv run pytest --cov=imap_mcp`
+   
+2. **Strategic Command Execution**:
+   - Ask the user to run commands that will save many tool calls over time
+   - Use more verbose output flags (`-v`, `--verbose`) to get more information in a single command
+   - Run commands from the project root to avoid changing directories multiple times
+
+### Optimize Code Changes
+1. **Comprehensive Edits**:
+   - Make larger batches of related changes rather than incremental edits
+   - Fix similar issues across multiple files in a single edit when possible
+   - Update both implementation and test code together when they're closely related
+
+2. **Testing Strategy**:
+   - Write all tests before implementing features (true TDD approach)
+   - Run the full test suite after significant changes rather than testing incrementally
+   - Use test fixtures and parameterization to reduce test code duplication
+
+3. **Documentation First**:
+   - Document design decisions and architecture before implementation
+   - Update documentation immediately after code changes to maintain consistency
+   - Use clear, descriptive commit messages that reference issues
+
+These strategies improve development efficiency while maintaining code quality and comprehensive testing.
