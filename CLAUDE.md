@@ -1,11 +1,21 @@
 # IMAP MCP Server Development Guide
 
+> **Important**: Before starting any development task, first consult the [DOCUMENTATION_CATALOG.md](./DOCUMENTATION_CATALOG.md) file to identify the most relevant documentation for your task. This catalog provides a comprehensive overview of all documentation files in the project.
+
 ## Environment Setup and Build Commands with `uv`
 - Create virtual environment: `uv venv`
 - Activate virtual environment: `source .venv/bin/activate` (Unix/macOS) or `.venv\Scripts\activate` (Windows)
 - Install dependencies: `uv pip install -e ".[dev]"`
 - Install specific packages: `uv add package_name`
 - Run commands within the environment: `uv run command [args]`
+
+### Package Management
+   - ONLY use uv, NEVER pip
+   - Installation: `uv add package`
+   - Running tools: `uv run tool`
+   - Upgrading: `uv add --dev package --upgrade-package package`
+   - FORBIDDEN: `uv pip install`, `@latest` syntax
+   - FORBIDDEN: `uv run python ...`
 
 ## Build and Test Commands
 - Install dependencies: `uv pip install -e ".[dev]"`
@@ -85,3 +95,124 @@ GitHub Issues have the following status labels:
 - **status:archived**: Task has been archived (currently manual update)
 
 Priority labels follow the format `priority:X` where X is a number starting from 1 (highest priority).
+
+## Integration Testing
+
+Integration tests verify that the IMAP MCP server works correctly with real email services. These tests require valid credentials and network connectivity to external services.
+
+### Environment Setup for Integration Tests
+
+1. **Required Environment Variables**:
+   - `TEST_IMAP_HOST`: IMAP server hostname (e.g., `imap.gmail.com`)
+   - `TEST_SMTP_HOST`: SMTP server hostname (e.g., `smtp.gmail.com`)
+   - `TEST_EMAIL`: Email address for testing
+   - `TEST_PASSWORD`: Email password or app password
+
+2. **Set Up Environment Variables**:
+   ```bash
+   # For temporary use in current session
+   export TEST_IMAP_HOST=imap.gmail.com
+   export TEST_SMTP_HOST=smtp.gmail.com
+   export TEST_EMAIL=your-test-email@gmail.com
+   export TEST_PASSWORD=your-app-password
+   
+   # Or add to your .env file for persistence (make sure it's in .gitignore)
+   echo "TEST_IMAP_HOST=imap.gmail.com" >> .env
+   echo "TEST_SMTP_HOST=smtp.gmail.com" >> .env
+   echo "TEST_EMAIL=your-test-email@gmail.com" >> .env
+   echo "TEST_PASSWORD=your-app-password" >> .env
+   ```
+
+### Refreshing OAuth2 Credentials
+
+OAuth2 tokens expire periodically. If integration tests fail with authentication errors, refresh your tokens before running tests:
+
+1. **Check if token refresh is needed**:
+   ```bash
+   uv run python -m imap_mcp.oauth2 check-token --config config.yaml
+   ```
+
+2. **Refresh the token if expired**:
+   ```bash
+   uv run python -m imap_mcp.auth_setup refresh-token --config config.yaml
+   ```
+
+3. **Generate a new token if refresh fails**:
+   ```bash
+   uv run python -m imap_mcp.auth_setup generate-token --config config.yaml
+   ```
+
+### Running Integration Tests
+
+1. **Run all tests including integration tests**:
+   ```bash
+   uv run pytest
+   ```
+
+2. **Run only integration tests**:
+   ```bash
+   uv run pytest tests/integration/
+   ```
+
+3. **Skip integration tests when necessary**:
+   ```bash
+   uv run pytest --skip-integration
+   ```
+
+4. **Run specific integration test**:
+   ```bash
+   uv run pytest tests/integration/test_gmail_integration.py::test_gmail_connect_oauth2
+   ```
+
+### Writing New Integration Tests
+
+When writing new integration tests:
+
+1. **Mark tests appropriately**: Use the `@pytest.mark.integration` decorator
+2. **Handle authentication errors gracefully**: Tests should fail clearly if credentials are invalid or expired
+3. **Clean up after tests**: Restore mailbox state after tests run (delete test messages, reset folders)
+4. **Isolate test data**: Use unique identifiers or timestamps for test data to avoid conflicts
+5. **Use test fixtures**: Leverage pytest fixtures for setup and teardown
+6. **Respect rate limits**: Add delays if necessary to avoid hitting service rate limits
+
+Example integration test structure:
+```python
+import pytest
+
+@pytest.mark.integration
+def test_some_integration_feature(gmail_client):
+    # Test implementation
+    result = gmail_client.some_operation()
+    assert result == expected_value
+
+## Development Efficiency Strategies
+
+When working with AI assistants or development tools that use credit-based systems, follow these practices to maximize efficiency:
+
+### Minimize Tool Use
+1. **Batch Commands**: Run fewer, more comprehensive commands rather than many small ones.
+   - Run all tests at once: `uv run pytest` instead of testing individual files sequentially
+   - Use coverage reports to identify issues in one pass: `uv run pytest --cov=imap_mcp`
+   
+2. **Strategic Command Execution**:
+   - Ask the user to run commands that will save many tool calls over time
+   - Use more verbose output flags (`-v`, `--verbose`) to get more information in a single command
+   - Run commands from the project root to avoid changing directories multiple times
+
+### Optimize Code Changes
+1. **Comprehensive Edits**:
+   - Make larger batches of related changes rather than incremental edits
+   - Fix similar issues across multiple files in a single edit when possible
+   - Update both implementation and test code together when they're closely related
+
+2. **Testing Strategy**:
+   - Write all tests before implementing features (true TDD approach)
+   - Run the full test suite after significant changes rather than testing incrementally
+   - Use test fixtures and parameterization to reduce test code duplication
+
+3. **Documentation First**:
+   - Document design decisions and architecture before implementation
+   - Update documentation immediately after code changes to maintain consistency
+   - Use clear, descriptive commit messages that reference issues
+
+These strategies improve development efficiency while maintaining code quality and comprehensive testing.

@@ -1,0 +1,7 @@
+imap:
+  oauth2:
+    access_token: test_access_token
+    client_id: test_client_id
+    client_secret: test_client_secret
+    refresh_token: test_refresh_token
+    token_expiry: 1742198060.237522

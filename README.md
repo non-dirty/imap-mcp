@@ -8,6 +8,7 @@ This project implements an MCP server that interfaces with IMAP email servers to
 
 - Email browsing and searching
 - Email organization (moving, tagging, marking)
+- Email composition and replies
 - Interactive email processing and learning user preferences
 - Automated email summarization and categorization
 - Support for multiple IMAP providers
@@ -17,10 +18,15 @@ The IMAP MCP server is designed to work with Claude or any other MCP-compatible 
 ## Features
 
 - **Email Authentication**: Secure access to IMAP servers with various authentication methods
-- **Email Browsing**: List folders and messages with filtering options ✓
-- **Email Content**: Read message contents including text, HTML, and attachments ✓
-- **Email Actions**: Move, delete, mark as read/unread, flag messages ✓
-- **Search**: Basic search capabilities across folders ✓
+- **Email Browsing**: List folders and messages with filtering options 
+- **Email Content**: Read message contents including text, HTML, and attachments 
+- **Email Actions**: Move, delete, mark as read/unread, flag messages 
+- **Email Composition**: Draft and save replies to messages with proper formatting
+  - Support for plain text and HTML replies
+  - Reply-all functionality with CC support
+  - Proper threading with In-Reply-To and References headers
+  - Save drafts to appropriate folders
+- **Search**: Basic search capabilities across folders 
 - **Interaction Patterns**: Structured patterns for processing emails and learning preferences (planned)
 - **Learning Layer**: Record and analyze user decisions to predict future actions (planned)
 
@@ -53,66 +59,88 @@ The project is currently organized as follows:
 ### Prerequisites
 
 - Python 3.8 or higher
-- An IMAP-enabled email account
-- [uv](https://docs.astral.sh/uv/) - Python package installer
-- Claude Desktop (or another MCP-compatible client)
+- An IMAP-enabled email account (Gmail recommended)
+- [uv](https://docs.astral.sh/uv/) for package management and running Python scripts
 
 ### Installation
 
-See [INSTALLATION.md](INSTALLATION.md) for detailed installation instructions.
+1. Install uv if you haven't already:
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
 
-Quick start:
-
-1. Install the uv tool from [https://docs.astral.sh/uv/](https://docs.astral.sh/uv/)
-
-2. Clone the repository:
+2. Clone and install the package:
    ```bash
    git clone https://github.com/non-dirty/imap-mcp.git
    cd imap-mcp
+   uv venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   uv pip install -e ".[dev]"
    ```
 
-3. Install dependencies:
+### Gmail Configuration
+
+1. Create a config file:
    ```bash
-   pip install -e .
+   cp config.sample.yaml config.yaml
    ```
 
-4. Configure your email account:
-   ```bash
-   cp examples/config.yaml.example config.yaml
-   # Edit config.yaml with your email settings
+2. Set up Gmail OAuth2 credentials:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select existing one
+   - Enable the Gmail API
+   - Create OAuth2 credentials (Desktop Application type)
+   - Download the client configuration
+
+3. Update `config.yaml` with your Gmail settings:
+   ```yaml
+   imap:
+     host: imap.gmail.com
+     port: 993
+     username: your-email@gmail.com
+     use_ssl: true
+     oauth2:
+       client_id: YOUR_CLIENT_ID
+       client_secret: YOUR_CLIENT_SECRET
+       refresh_token: YOUR_REFRESH_TOKEN
    ```
 
 ### Usage
 
-#### Starting the Server
+#### Checking Email
 
+To list emails in your inbox:
 ```bash
-# Basic usage
-python -m imap_mcp.server
-
-# With specific config file
-python -m imap_mcp.server --config /path/to/config.yaml
-
-# For development
-python -m imap_mcp.server --dev
+uv run list_inbox.py --config config.yaml --folder INBOX --limit 10
 ```
 
-#### Integrating with Claude Desktop
+Available options:
+- `--folder`: Specify which folder to check (default: INBOX)
+- `--limit`: Maximum number of emails to display (default: 10)
+- `--verbose`: Enable detailed logging output
 
-Add the following to your Claude Desktop configuration:
+#### Starting the MCP Server
 
-```json
-{
-  "mcpServers": {
-    "imap": {
-      "command": "python",
-      "args": ["-m", "imap_mcp.server", "--config", "/path/to/config.yaml"],
-      "env": {
-        "IMAP_PASSWORD": "your_secure_password"
-      }
-    }
-  }
-}
+To start the IMAP MCP server:
+```bash
+uv run imap_mcp.server --config config.yaml
+```
+
+For development mode with debugging:
+```bash
+uv run imap_mcp.server --dev
+```
+
+#### Managing OAuth2 Tokens
+
+To refresh your OAuth2 token:
+```bash
+uv run imap_mcp.auth_setup refresh-token --config config.yaml
+```
+
+To generate a new OAuth2 token:
+```bash
+uv run imap_mcp.auth_setup generate-token --config config.yaml
 ```
 
 ## Development
@@ -149,6 +177,7 @@ This MCP server requires access to your email account, which contains sensitive 
 - [x] Basic IMAP integration
 - [x] Email resource implementation
 - [x] Email tool implementation
+- [x] Email reply and draft functionality
 - [ ] User preference learning implementation
 - [ ] Advanced search capabilities
 - [ ] Multi-account support

@@ -13,6 +13,7 @@ from imap_mcp.config import ServerConfig, load_config
 from imap_mcp.imap_client import ImapClient
 from imap_mcp.resources import register_resources
 from imap_mcp.tools import register_tools
+from imap_mcp.mcp_protocol import extend_server
 
 # Set up logging
 logging.basicConfig(
@@ -74,7 +75,7 @@ def create_server(config_path: Optional[str] = None, debug: bool = False) -> Fas
     # Load configuration
     config = load_config(config_path)
     
-    # Create MCP server
+    # Create MCP server with all the necessary capabilities
     server = FastMCP(
         "IMAP",
         description="IMAP Model Context Protocol server for email processing",
@@ -112,6 +113,9 @@ def create_server(config_path: Optional[str] = None, debug: bool = False) -> Fas
         
         return "\n".join(f"{k}: {v}" for k, v in status.items())
     
+    # Apply MCP protocol extension for Claude Desktop compatibility
+    server = extend_server(server)
+    
     return server
 
 
@@ -133,7 +137,16 @@ def main() -> None:
         action="store_true", 
         help="Enable debug logging",
     )
+    parser.add_argument(
+        "--version",
+        action="store_true",
+        help="Show version information and exit",
+    )
     args = parser.parse_args()
+    
+    if args.version:
+        print("IMAP MCP Server version 0.1.0")
+        return
     
     if args.debug:
         logger.setLevel(logging.DEBUG)

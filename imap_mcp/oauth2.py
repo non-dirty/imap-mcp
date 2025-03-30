@@ -35,12 +35,30 @@ def get_access_token(oauth2_config: OAuth2Config) -> Tuple[str, int]:
         ValueError: If unable to get an access token
     """
     # Check if we already have a valid access token
+    current_time = int(time.time())
+    
+    # Handle token_expiry as either int timestamp or datetime string
+    token_expiry = 0
+    if oauth2_config.token_expiry:
+        try:
+            # Try to convert to int directly
+            token_expiry = int(oauth2_config.token_expiry)
+        except (ValueError, TypeError):
+            # If it's a datetime string, try to parse it
+            try:
+                # Handle ISO format datetime strings
+                from datetime import datetime
+                expiry_dt = datetime.fromisoformat(str(oauth2_config.token_expiry).replace('Z', '+00:00'))
+                token_expiry = int(expiry_dt.timestamp())
+            except (ValueError, TypeError):
+                # If parsing fails, force token refresh
+                token_expiry = 0
+    
     if (
         oauth2_config.access_token 
-        and oauth2_config.token_expiry 
-        and oauth2_config.token_expiry > int(time.time()) + 300  # 5 min buffer
+        and token_expiry > current_time + 300  # 5 min buffer
     ):
-        return oauth2_config.access_token, oauth2_config.token_expiry
+        return oauth2_config.access_token, token_expiry
     
     # Otherwise, use refresh token to get a new access token
     if not oauth2_config.refresh_token:

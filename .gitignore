@@ -34,8 +34,9 @@ htmlcov/
 venv/
 env/
 ENV/
-.env
+.env*
 .venv
+uv.lock
 
 # IDE
 .idea/
@@ -54,20 +55,19 @@ credentials.json
 *.credentials.json
 
 # Configuration
-config.yaml
+config.yaml*
 
 # Resources 
 # Exclude all files in resources by default
 resources/
+reference_github/
 
 
 # Exclude any sensitive files that might be in resources even if they match above patterns
-*secret*
-*token*
-*key*
-*credential*
-*password*
-*auth*
+#*secret*
+#*key*
+#*credential*
+#*password*
 
 # Secret Design Ideas
 # reference/

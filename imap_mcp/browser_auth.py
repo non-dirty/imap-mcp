@@ -248,7 +248,11 @@ def load_client_credentials(credentials_file: str) -> Tuple[str, str]:
         
     try:
         with open(credentials_path) as f:
-            credentials = json.load(f)
+            try:
+                credentials = json.load(f)
+            except json.JSONDecodeError as e:
+                # Convert JSONDecodeError to ValueError for consistent error handling
+                raise ValueError(f"Invalid JSON in credentials file: {credentials_file}. Error: {str(e)}")
             
         if "installed" in credentials:
             client_config = credentials["installed"]
@@ -264,8 +268,11 @@ def load_client_credentials(credentials_file: str) -> Tuple[str, str]:
             raise ValueError(f"Missing client_id or client_secret in {credentials_file}")
             
         return client_id, client_secret
-    except json.JSONDecodeError:
-        raise ValueError(f"Invalid JSON in credentials file: {credentials_file}")
+    except Exception as e:
+        # Catch any other potential errors and convert them to ValueError
+        if not isinstance(e, (ValueError, FileNotFoundError)):
+            raise ValueError(f"Error reading credentials file: {str(e)}")
+        raise
 
 
 def perform_oauth_flow(
