@@ -1,10 +1,9 @@
 """Test module for the issue status updater script."""
 
-import os
 import sys
 import json
 import pytest
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 
 # Add the scripts directory to the path so we can import the module directly
 sys.path.append('scripts')

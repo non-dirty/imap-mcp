@@ -2,10 +2,8 @@
 Tests for the tasks_to_issues.py script that migrates tasks from TASKS.md to GitHub Issues.
 """
 
-import os
 import sys
 import json
-import tempfile
 import unittest
 from unittest.mock import patch, MagicMock, mock_open
 from pathlib import Path

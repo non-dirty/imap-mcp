@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from email.header import decode_header
 from email.message import Message
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional
 
 
 def decode_mime_header(header_value: Optional[str]) -> str:

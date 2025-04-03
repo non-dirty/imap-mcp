@@ -4,15 +4,13 @@ import email
 import logging
 import re
 from datetime import datetime, timedelta
-from email.message import Message
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import imapclient
-from imapclient.response_types import SearchIds
 
 from imap_mcp.config import ImapConfig
 from imap_mcp.models import Email
-from imap_mcp.oauth2 import get_access_token, generate_oauth2_string
+from imap_mcp.oauth2 import get_access_token
 
 logger = logging.getLogger(__name__)
 
@@ -570,431 +568,82 @@ class ImapClient:
             logger.error(f"Failed to delete email: {e}")
             return False
     
-    def get_message_count(self, folder: str, status: Optional[str] = None, refresh: bool = False) -> int:
-        """
-        Get message count in folder with optional filter by status.
-        
-        Args:
-            folder: Folder name to get count from
-            status: Optional filter - 'TOTAL', 'UNSEEN', or 'SEEN'
-            refresh: Force refresh count from server
-            
-        Returns:
-            Integer count of messages matching the criteria
-            
-        Raises:
-            ConnectionError: If not connected and connection fails
-            ValueError: If folder is not allowed
-        """
-        # Normalize status
-        if status is None:
-            status = "TOTAL"
-        status = status.upper()
-        
-        # Check if folder is allowed
-        if self.allowed_folders and folder not in self.allowed_folders:
-            raise ValueError(f"Folder '{folder}' is not allowed. Allowed folders: {self.allowed_folders}")
-        
-        # Check cache unless refresh is requested
-        if not refresh and folder in self.folder_message_counts:
-            cached_info = self.folder_message_counts[folder]
-            cached_time = cached_info["time"]
-            cached_count = cached_info.get(status, 0)
-            current_time = datetime.now()
-            
-            # Use cache if it's less than 5 seconds old
-            if (current_time - cached_time).total_seconds() < 5:
-                logger.debug(f"Using cached message count for {folder} with status {status}: {cached_count}")
-                return cached_count
-        
-        # Ensure connection
-        self.ensure_connected()
-        
-        # Get folder status
-        folder_status = self.get_folder_status(folder)
-        
-        # Get count based on status
-        if status == "TOTAL":
-            # Get total message count from folder status
-            count = folder_status.get(b"MESSAGES", 0)
-        elif status == "UNSEEN":
-            # Get unread message count from folder status
-            count = folder_status.get(b"UNSEEN", 0)
-        elif status == "SEEN":
-            # Calculate read count as total - unread
-            total_count = folder_status.get(b"MESSAGES", 0)
-            unread_count = folder_status.get(b"UNSEEN", 0)
-            count = max(0, total_count - unread_count)  # Ensure it's never negative
-        else:
-            raise ValueError(f"Invalid status: {status}. Must be one of: TOTAL, UNSEEN, SEEN")
-            
-        # Update cache
-        if folder not in self.folder_message_counts:
-            self.folder_message_counts[folder] = {}
-        self.folder_message_counts[folder]["time"] = datetime.now()
-        self.folder_message_counts[folder][status] = count
-        
-        logger.debug(f"Message count for {folder} with status {status}: {count}")
-        
-        return count
-
-    def get_total_count(self, folder: str, refresh: bool = False) -> int:
-        """
-        Get total message count in folder.
-        
-        Args:
-            folder: Folder name to get count from
-            refresh: Force refresh count from server
-            
-        Returns:
-            Integer count of total messages
-            
-        Raises:
-            ConnectionError: If not connected and connection fails
-            ValueError: If folder is not allowed
-        """
-        return self.get_message_count(folder, status="TOTAL", refresh=refresh)
-    
-    def get_unread_count(self, folder: str, refresh: bool = False) -> int:
-        """
-        Get count of unread messages in folder.
-        
-        Args:
-            folder: Folder name to get count from
-            refresh: Force refresh count from server
-            
-        Returns:
-            Integer count of unread messages
-            
-        Raises:
-            ConnectionError: If not connected and connection fails
-            ValueError: If folder is not allowed
-        """
-        return self.get_message_count(folder, status="UNSEEN", refresh=refresh)
-    
-    def get_read_count(self, folder: str, refresh: bool = False) -> int:
-        """
-        Get count of read messages in folder.
-        
-        Args:
-            folder: Folder name to get count from
-            refresh: Force refresh count from server
-            
-        Returns:
-            Integer count of read messages
-            
-        Raises:
-            ConnectionError: If not connected and connection fails
-            ValueError: If folder is not allowed
-        """
-        # Ensure we get a consistent count by using a single folder status check
-        self.ensure_connected()
-        folder_status = self.get_folder_status(folder)
-        total = folder_status.get(b"MESSAGES", 0)
-        unread = folder_status.get(b"UNSEEN", 0)
-        read = max(0, total - unread)  # Ensure it's never negative
-        
-        # Cache the read count
-        if folder not in self.folder_message_counts:
-            self.folder_message_counts[folder] = {}
-        self.folder_message_counts[folder]["time"] = datetime.now()
-        self.folder_message_counts[folder]["SEEN"] = read
-        
-        return read
-    
-    def get_folder_status(self, folder: str) -> Dict[str, int]:
-        """Get status information for a folder.
-
-        Args:
-            folder: Folder name
-
-        Returns:
-            Dictionary with status information (MESSAGES, RECENT, UNSEEN, etc.)
-        """
-        self.ensure_connected()
-        
-        try:
-            # STATUS command returns information about the folder without selecting it
-            status = self.client.folder_status(folder, ["MESSAGES", "RECENT", "UNSEEN", "UIDNEXT", "UIDVALIDITY"])
-            logger.debug(f"Folder status for {folder}: {status}")
-            
-            # Add EXISTS key for compatibility with tests that expect it
-            status[b"EXISTS"] = status.get(b"MESSAGES", 0)
-            
-            return status
-        except Exception as e:
-            logger.error(f"Failed to get status for folder {folder}: {e}")
-            raise ValueError(f"Failed to get status for folder {folder}: {e}")
-    
-    def _sort_results(
-        self, 
-        emails: Dict[int, Email], 
-        sort_by: str, 
-        sort_order: str
-    ) -> Dict[int, Email]:
-        """Sort email results by specified field.
-        
-        Args:
-            emails: Dictionary of UIDs to Email objects
-            sort_by: Field to sort by ('date', 'size', 'from', 'subject')
-            sort_order: Sort order ('asc' or 'desc')
-            
-        Returns:
-            Sorted dictionary of UIDs to Email objects
-            
-        Raises:
-            ValueError: If sort_by or sort_order is invalid
-        """
-        valid_sort_fields = {"date", "size", "from", "subject"}
-        valid_sort_orders = {"asc", "desc"}
-        
-        if sort_by not in valid_sort_fields:
-            raise ValueError(f"Invalid sort_by: {sort_by}. Must be one of {valid_sort_fields}")
-        
-        if sort_order not in valid_sort_orders:
-            raise ValueError(f"Invalid sort_order: {sort_order}. Must be one of {valid_sort_orders}")
-        
-        # Handle special case for 'from' which is a reserved keyword
-        if sort_by == "from":
-            attr_name = "from_"
-        else:
-            attr_name = sort_by
-            
-        # Sort the emails based on the specified attribute
-        reverse = sort_order == "desc"
-        sorted_emails = dict(
-            sorted(
-                emails.items(),
-                key=lambda item: getattr(item[1], attr_name) or "",  # Use empty string if None
-                reverse=reverse
-            )
-        )
-        
-        return sorted_emails
-    
-    def _paginate_results(
-        self, 
-        emails: Dict[int, Email], 
-        offset: int, 
-        limit: Optional[int]
-    ) -> Dict[int, Email]:
-        """Paginate results with offset and limit.
-        
-        Args:
-            emails: Dictionary of UIDs to Email objects
-            offset: Number of items to skip
-            limit: Maximum number of items to return (None for all)
-            
-        Returns:
-            Paginated dictionary of UIDs to Email objects
-            
-        Raises:
-            ValueError: If offset is negative or limit is zero
-        """
-        if offset < 0:
-            raise ValueError("Offset cannot be negative")
-        
-        if limit is not None and limit <= 0:
-            raise ValueError("Limit must be positive")
-            
-        # Get list of keys (UIDs)
-        keys = list(emails.keys())
-        
-        # Apply pagination
-        start = offset
-        end = None if limit is None else offset + limit
-        
-        # Slice the keys and create a new dictionary
-        paginated_keys = keys[start:end]
-        paginated_emails = {k: emails[k] for k in paginated_keys}
-        
-        return paginated_emails
-    
-    def get_unread_messages(
-        self, 
-        folder: str = "INBOX", 
-        limit: Optional[int] = 10,
-        offset: int = 0,
-        sort_by: str = "date",
-        sort_order: str = "desc"
-    ) -> Dict[int, Email]:
-        """Get unread messages from folder with pagination.
-        
-        Args:
-            folder: Folder to fetch from
-            limit: Maximum number of messages to retrieve (None for all)
-            offset: Number of messages to skip
-            sort_by: Field to sort by ('date', 'size', 'from', 'subject')
-            sort_order: Sort order ('asc' or 'desc')
-            
-        Returns:
-            Dictionary mapping UIDs to Email objects
-            
-        Raises:
-            ConnectionError: If not connected and connection fails
-            ValueError: If folder is not allowed or parameters are invalid
-        """
-        # Validate parameters
-        if offset < 0:
-            raise ValueError("Offset cannot be negative")
-        
-        if limit is not None and limit <= 0:
-            raise ValueError("Limit must be positive")
-            
-        valid_sort_fields = {"date", "size", "from", "subject"}
-        if sort_by not in valid_sort_fields:
-            raise ValueError(f"Invalid sort_by: {sort_by}. Must be one of {valid_sort_fields}")
-            
-        valid_sort_orders = {"asc", "desc"}
-        if sort_order not in valid_sort_orders:
-            raise ValueError(f"Invalid sort_order: {sort_order}. Must be one of {valid_sort_orders}")
-        
-        # Ensure connection and select folder
-        self.ensure_connected()
-        self.select_folder(folder)
-        
-        # Check if server supports SORT capability
-        use_server_sort = False
-        capabilities = self.get_capabilities()
-        if "SORT" in capabilities:
-            use_server_sort = True
-            logger.debug("Using server-side sorting")
-        else:
-            logger.debug("Server does not support SORT, using client-side sorting")
-        
-        # Search for unread messages
-        unread_uids = self.search("UNSEEN", folder=folder)
-        
-        if not unread_uids:
-            return {}
-        
-        # Fetch all unread messages
-        emails = self.fetch_emails(unread_uids, folder=folder)
-        
-        # Sort the results
-        sorted_emails = self._sort_results(emails, sort_by, sort_order)
-        
-        # Apply pagination
-        paginated_emails = self._paginate_results(sorted_emails, offset, limit)
-        
-        return paginated_emails
-
     def _get_drafts_folder(self) -> str:
-        """Get the name of the appropriate drafts folder for the current server.
-        
-        This method intelligently determines the most appropriate drafts folder
-        based on the server type and available folders. It handles different server
-        configurations:
-        
-        1. Gmail: Uses '[Gmail]/Drafts' or similar Gmail-specific folder
-        2. Standard IMAP: Uses 'Drafts' folder
-        3. Fallback: If no drafts folder is found, returns 'Drafts' as a default
-        
-        The method checks server capabilities to identify Gmail servers (which use
-        the X-GM-EXT capability), then looks for appropriate folders in the folder list.
+        """Get the drafts folder name for the current server.
         
         Returns:
-            str: The name of the drafts folder to use
+            The name of the drafts folder, or "INBOX" as fallback
+        """
+        self.ensure_connected()
+        folders = self.list_folders(refresh=True)
+        
+        # Check for Gmail's special folders structure
+        if self.config.host and "gmail" in self.config.host.lower():
+            gmail_drafts = [f for f in folders if f.lower().endswith("/drafts")]
+            if gmail_drafts:
+                logger.debug(f"Using Gmail drafts folder: {gmail_drafts[0]}")
+                return gmail_drafts[0]
+        
+        # Look for standard drafts folder names (case-insensitive)
+        drafts_folder_names = ["Drafts", "Draft", "Brouillons", "Borradores", "Entwürfe"]
+        for folder in folders:
+            if folder.lower() in [name.lower() for name in drafts_folder_names]:
+                logger.debug(f"Using drafts folder: {folder}")
+                return folder
+        
+        # Fallback to INBOX if no drafts folder found
+        logger.warning("No drafts folder found, using INBOX as fallback")
+        return "INBOX"
+    
+    def save_draft_mime(self, message) -> Optional[int]:
+        """Save a MIME message as a draft.
+        
+        Args:
+            message: email.message.Message object to save as draft
+            
+        Returns:
+            UID of the saved draft if available, None otherwise
+            
+        Raises:
+            ConnectionError: If not connected and connection fails
         """
         self.ensure_connected()
         
-        # Get list of folders
-        folders = self.list_folders()
-        
-        # Check capabilities to see if this is Gmail
-        capabilities = self.get_capabilities()
-        is_gmail = any(cap.startswith('X-GM-EXT') for cap in capabilities)
-        
-        # Look for Gmail's drafts folder
-        if is_gmail:
-            gmail_drafts = '[Gmail]/Drafts'
-            if gmail_drafts in folders:
-                return gmail_drafts
-            
-            # Some Gmail accounts might have different folder structure
-            for folder in folders:
-                if '/Drafts' in folder:
-                    return folder
-        
-        # Look for standard drafts folder
-        if 'Drafts' in folders:
-            return 'Drafts'
-        
-        # If no drafts folder found, create one or use a fallback
-        # In real implementation, we might want to create a Drafts folder here
-        logger.warning("No drafts folder found, using 'Drafts' as fallback")
-        return 'Drafts'
-    
-    def save_draft_mime(self, mime_message: Message) -> Optional[int]:
-        """Save a MIME message as a draft in the drafts folder.
-        
-        This method saves an email.message.Message object as a draft message
-        in the user's drafts folder. It:
-        
-        1. Automatically determines the appropriate drafts folder
-        2. Appends the message with the \\Draft flag
-        3. Extracts and returns the UID of the newly created draft message
-        
-        The method parses the server's response to extract the UID of the saved
-        draft message, which can be used for further operations on the draft.
-        
-        Example:
-            ```python
-            # Create a MIME message
-            from email.mime.text import MIMEText
-            msg = MIMEText("Draft message content")
-            msg['Subject'] = "Draft Subject"
-            msg['To'] = "recipient@example.com"
-            msg['From'] = "sender@example.com"
-            
-            # Save as draft
-            draft_uid = imap_client.save_draft_mime(msg)
-            
-            if draft_uid:
-                print(f"Draft saved with UID: {draft_uid}")
-            else:
-                print("Failed to save draft")
-            ```
-        
-        Args:
-            mime_message: The email.message.Message object to save as a draft
-            
-        Returns:
-            Optional[int]: The UID of the saved draft message if successful,
-                          None if the message couldn't be saved or if the UID
-                          couldn't be determined from the server response
-        """
-        if not self.connected:
-            logger.error("Not connected to IMAP server")
-            return None
+        # Get the drafts folder
+        drafts_folder = self._get_drafts_folder()
         
         try:
-            # Get the drafts folder
-            drafts_folder = self._get_drafts_folder()
+            # Convert message to bytes if it's not already
+            if hasattr(message, "as_bytes"):
+                message_bytes = message.as_bytes()
+            else:
+                message_bytes = message.as_string().encode("utf-8")
             
-            # Convert the message to bytes
-            message_bytes = mime_message.as_bytes()
-            
-            # Append the message to the drafts folder with the \Draft flag
-            result = self.client.append(drafts_folder, message_bytes, ["\\Draft"])
+            # Save the draft with Draft flag
+            response = self.client.append(
+                drafts_folder, 
+                message_bytes,
+                flags=(r"\Draft",)
+            )
             
             # Try to extract the UID from the response
-            # The APPENDUID response format is: [APPENDUID <UIDVALIDITY> <UID>]
-            # For example: b'[APPENDUID 1234567890 123]'
             uid = None
-            if result:
-                result_str = str(result)
-                match = re.search(r'APPENDUID \d+ (\d+)', result_str, re.IGNORECASE)
-                if match:
-                    uid = int(match.group(1))
+            if isinstance(response, bytes) and b"APPENDUID" in response:
+                # Parse the APPENDUID response (format: [APPENDUID <uidvalidity> <uid>])
+                try:
+                    # Use a more robust parsing approach
+                    match = re.search(rb'APPENDUID\s+\d+\s+(\d+)', response)
+                    if match:
+                        uid = int(match.group(1))
+                        logger.debug(f"Draft saved with UID: {uid}")
+                except (IndexError, ValueError) as e:
+                    logger.warning(f"Could not parse UID from response: {e}")
             
-            if uid:
-                logger.info(f"Draft saved to {drafts_folder} with UID {uid}")
-                return uid
-            else:
-                logger.warning("Draft saved but couldn't determine UID")
-                return None
-                
+            if uid is None:
+                logger.warning(f"Could not extract UID from append response: {response}")
+            
+            return uid
+            
         except Exception as e:
-            logger.error(f"Error saving draft: {e}")
+            logger.error(f"Failed to save draft: {e}")
             return None

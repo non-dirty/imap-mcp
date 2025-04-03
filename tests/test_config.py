@@ -1,9 +1,7 @@
 """Tests for the config module."""
 
-import os
 import tempfile
 from pathlib import Path
-from typing import Dict, Any
 from unittest.mock import patch
 
 import pytest

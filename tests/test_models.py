@@ -2,9 +2,7 @@
 
 import email
 import unittest
-from datetime import datetime
 from email.header import Header
-from email.message import Message
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 

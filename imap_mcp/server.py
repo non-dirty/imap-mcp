@@ -1,13 +1,12 @@
 """Main server implementation for IMAP MCP."""
 
 import argparse
-import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Dict, Optional
 
-from mcp.server.fastmcp import FastMCP, Context
+from mcp.server.fastmcp import FastMCP
 
 from imap_mcp.config import ServerConfig, load_config
 from imap_mcp.imap_client import ImapClient

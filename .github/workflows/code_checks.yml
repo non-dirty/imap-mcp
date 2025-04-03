@@ -1,0 +1,52 @@
+name: Code Quality Checks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10"]
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        
+    - name: Create virtual environment
+      run: uv venv
+      
+    - name: Install dependencies
+      run: |
+        uv pip install -e ".[dev]"
+        
+    - name: Make scripts executable
+      run: |
+        chmod +x scripts/run_checks.sh
+        chmod +x scripts/github_workflow.py
+        
+    - name: Run checks
+      run: ./scripts/run_checks.sh --ci --skip-integration
+      
+    - name: Update PR status (for PRs only)
+      if: github.event_name == 'pull_request'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "Updating PR status using github_workflow.py"
+        PR_NUMBER=${{ github.event.pull_request.number }}
+        python -m scripts.github_workflow update-status $PR_NUMBER in-review --comment "Code quality checks passed on PR #${PR_NUMBER}."

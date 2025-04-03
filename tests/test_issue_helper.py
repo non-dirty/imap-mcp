@@ -1,11 +1,10 @@
 """Test module for the issue helper script."""
 
-import os
 import sys
 import json
 import pytest
 import subprocess
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 
 # Add the scripts directory to the path so we can import the module directly
 sys.path.append('scripts')
@@ -161,7 +160,7 @@ class TestIssueHelper:
         # Verify expectations
         assert mock_run_command.call_count == 3
         assert mock_print.call_count > 0
-        assert mock_get_status.called == False  # We should use the status from the labels in the response
+        assert mock_get_status.called is False  # We should use the status from the labels in the response
 
     @patch('builtins.print')
     @patch('builtins.input', return_value='y')

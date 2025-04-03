@@ -1,17 +1,12 @@
 """Tests for the IMAP client."""
 
-import email
-import email.utils
 import pytest
-import unittest
-from datetime import datetime
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import patch
 
-from imap_mcp.config import ImapConfig, ServerConfig
+from imap_mcp.config import ImapConfig
 from imap_mcp.imap_client import ImapClient
-from imap_mcp.models import Email, EmailAddress
+from imap_mcp.models import Email
 
-from imapclient.response_types import SearchIds
 
 
 class TestImapClient:

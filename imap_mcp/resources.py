@@ -2,13 +2,12 @@
 
 import json
 import logging
-from typing import Dict, List, Optional, Tuple, Union, cast
 
 from mcp.server.fastmcp import FastMCP, Context
 
 from imap_mcp.imap_client import ImapClient
 from imap_mcp.models import Email
-from imap_mcp.smtp_client import SmtpClient
+import imap_mcp.smtp_client as smtp_client
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ def get_client_from_context(ctx: Context) -> ImapClient:
     return client
 
 
-def get_smtp_client_from_context(ctx: Context) -> SmtpClient:
+def get_smtp_client_from_context(ctx: Context) -> smtp_client:
     """Get SMTP client from context.
     
     Args:

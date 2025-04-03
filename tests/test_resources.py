@@ -3,13 +3,10 @@
 import json
 import pytest
 from unittest import mock
-from datetime import datetime
-from typing import Dict, List, Any
 
 from mcp.server.fastmcp import Context, FastMCP
 
 from imap_mcp.resources import register_resources, get_client_from_context
-from imap_mcp.models import Email, EmailAddress, EmailContent, EmailAttachment
 
 # Directly patch the Context class
 original_get_current = getattr(Context, 'get_current', None)

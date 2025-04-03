@@ -5,7 +5,6 @@ import os
 import pytest
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from unittest.mock import MagicMock, patch
 
 from imap_mcp.models import Email, EmailAddress
 from tests.test_utils import (

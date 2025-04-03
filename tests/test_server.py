@@ -1,14 +1,12 @@
 """Tests for the server module."""
 
-import os
 import pytest
 from unittest import mock
 import argparse
-import asyncio
 from contextlib import AsyncExitStack
 import logging
 
-from mcp.server.fastmcp import FastMCP, Context
+from mcp.server.fastmcp import FastMCP
 
 from imap_mcp.server import create_server, server_lifespan, main
 from imap_mcp.config import ServerConfig, ImapConfig
@@ -120,8 +118,7 @@ class TestServer:
         
         # Mock config loading and ImapClient
         with mock.patch("imap_mcp.server.load_config", return_value=mock_config) as mock_load_config:
-            with mock.patch("imap_mcp.server.ImapClient") as MockImapClient:
-                mock_client = MockImapClient.return_value
+            with mock.patch("imap_mcp.server.ImapClient"):
                 
                 async with AsyncExitStack() as stack:
                     await stack.enter_async_context(server_lifespan(mock_server))
